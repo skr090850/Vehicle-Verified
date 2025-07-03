@@ -1,5 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:vehicle_verified/auth_screens/changed_password.dart';
 import 'package:vehicle_verified/themes/color.dart';
 
 class ForgotPassword extends StatefulWidget {
@@ -13,51 +13,69 @@ class ForgotPassword extends StatefulWidget {
 
 class _ForgotPasswordState extends State<ForgotPassword> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
-  bool _isOtpSent = false;
+  final _emailController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _phoneController.dispose();
-    _otpController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
-  void _handleButtonPress() {
+  Future<void> _sendResetLink() async {
     if (_formKey.currentState!.validate()) {
-      if (!_isOtpSent) {
-        // --- Step 1: Send OTP ---
-        setState(() {
-          _isLoading = true;
-        });
-        // TODO: Implement real Firebase OTP sending logic
-        Future.delayed(const Duration(seconds: 2), () {
-          setState(() {
-            _isLoading = false;
-            _isOtpSent = true;
-          });
-        });
-      } else {
-        // --- Step 2: Verify OTP ---
-        setState(() {
-          _isLoading = true;
-        });
-        // TODO: Implement real Firebase OTP verification logic
-        Future.delayed(const Duration(seconds: 2), () {
-          setState(() {
-            _isLoading = false;
-          });
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => ChangePasswordScreen(
-                phoneNumber: _phoneController.text,
-                userRole: widget.userRole,
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Step 1: Check if any sign-in methods are associated with the email.
+        List<String> signInMethods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(
+          _emailController.text.trim(),
+        );
+
+        // Step 2: If the list is empty, the email is not registered.
+        if (signInMethods.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No user found for that email.'),
+                backgroundColor: Colors.red,
               ),
+            );
+          }
+        } else {
+          // Step 3: If the email exists, send the password reset link.
+          await FirebaseAuth.instance.sendPasswordResetEmail(
+            email: _emailController.text.trim(),
+          );
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Password reset link sent! Please check your email.'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.of(context).pop();
+          }
+        }
+      } on FirebaseAuthException catch (e) {
+        // Handle other potential errors, though most are covered by the check above.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.message ?? 'An error occurred. Please try again.'),
+              backgroundColor: Colors.red,
             ),
           );
-        });
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -73,7 +91,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
     return Scaffold(
       backgroundColor: AppColors.backgroundColorFirst,
       appBar: AppBar(
-        title: const Text('Forgot Password', style: TextStyle(color: Colors.white)),
+        title: const Text('Reset Password', style: TextStyle(color: Colors.white)),
         backgroundColor: primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
@@ -96,12 +114,10 @@ class _ForgotPasswordState extends State<ForgotPassword> {
       children: [
         Image.asset(imageAsset, height: 200, fit: BoxFit.contain),
         const SizedBox(height: 24),
-        Text(
-          !_isOtpSent
-              ? 'Enter your registered phone number to receive a verification code.'
-              : 'An OTP has been sent to your phone. Please enter it below.',
+        const Text(
+          'Enter your registered email address to receive a password reset link.',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16, color: Colors.black54),
+          style: TextStyle(fontSize: 16, color: Colors.black54),
         ),
       ],
     );
@@ -113,55 +129,33 @@ class _ForgotPasswordState extends State<ForgotPassword> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Phone number field (always visible)
           TextFormField(
-            controller: _phoneController,
-            enabled: !_isOtpSent,
+            controller: _emailController,
             decoration: const InputDecoration(
-              labelText: 'Phone Number',
-              prefixIcon: Icon(Icons.phone_android),
+              labelText: 'Email Address',
+              prefixIcon: Icon(Icons.email_outlined),
               border: OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.phone,
+            keyboardType: TextInputType.emailAddress,
             validator: (value) {
-              if (value == null || value.length != 10) {
-                return 'Please enter a valid 10-digit phone number';
+              if (value == null || value.isEmpty || !value.contains('@')) {
+                return 'Please enter a valid email address';
               }
               return null;
             },
           ),
-          const SizedBox(height: 20),
-          // OTP field (visible after OTP is sent)
-          if (_isOtpSent)
-            TextFormField(
-              controller: _otpController,
-              decoration: const InputDecoration(
-                labelText: 'Enter OTP',
-                prefixIcon: Icon(Icons.password),
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.length != 6) {
-                  return 'Please enter a valid 6-digit OTP';
-                }
-                return null;
-              },
-            ),
           const SizedBox(height: 32),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : ElevatedButton(
-            onPressed: _handleButtonPress,
+              : ElevatedButton.icon(
+            icon: const Icon(Icons.send_outlined, color: Colors.white),
+            label: const Text('Send Reset Link', style: TextStyle(color: Colors.white)),
+            onPressed: _sendResetLink,
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            child: Text(
-              !_isOtpSent ? 'Send OTP' : 'Verify OTP',
-              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],

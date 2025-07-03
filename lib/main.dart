@@ -4,6 +4,7 @@ import 'package:vehicle_verified/splash_screen.dart'; // SplashScreen ko import 
 import 'firebase_options.dart';
 
 void main() async {
+  // Yeh lines Firebase ko shuru karne ke liye zaroori hain
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -23,7 +24,6 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.grey[200],
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      // FIX: App ka home ab SplashScreen hai
       home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );

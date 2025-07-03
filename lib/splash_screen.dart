@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vehicle_verified/themes/color.dart';
 import 'dart:async';
-import 'package:vehicle_verified/auth_screens/auth_wrapper.dart';
+import 'package:vehicle_verified/auth_screens/auth_wrapper.dart'; // FIX: AuthWrapper ko import karein
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _startTimer() {
-    Timer(const Duration(seconds: 2), _navigate);
+    Timer(const Duration(seconds: 3), _navigate);
   }
 
   void _navigate() {

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/add_vehicle_screen.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/generate_qr_code_screen.dart';
@@ -184,12 +185,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         ),
         IconButton(
           icon: const Icon(Icons.logout, color: AppColors.textPrimary),
-          onPressed: () {
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
             // Navigate to the initial screen and clear the navigation stack.
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const AuthSelectorScreen()),
-                  (Route<dynamic> route) => false,
-            );
+            // Navigator.of(context).pushAndRemoveUntil(
+            //   MaterialPageRoute(builder: (context) => const AuthSelectorScreen()),
+            //       (Route<dynamic> route) => false,
+            // );
           },
         ),
       ],

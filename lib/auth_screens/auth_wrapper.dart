@@ -13,49 +13,72 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
+        // Agar user login hai, to RoleBasedRedirect dikhayein
+        if (snapshot.hasData) {
+          return RoleBasedRedirect(userId: snapshot.data!.uid);
+        }
+        // Agar user login nahi hai, to AuthSelectorScreen dikhayein
+        else {
+          return const AuthSelectorScreen();
+        }
+      },
+    );
+  }
+}
+
+class RoleBasedRedirect extends StatefulWidget {
+  final String userId;
+  const RoleBasedRedirect({super.key, required this.userId});
+
+  @override
+  State<RoleBasedRedirect> createState() => _RoleBasedRedirectState();
+}
+
+class _RoleBasedRedirectState extends State<RoleBasedRedirect> {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      // Firestore se user ka data get karein
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .get(),
+      builder: (context, snapshot) {
+        // Jab tak data aa raha hai, loading indicator dikhayein
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        if (snapshot.hasData) {
-          return RoleBasedRedirect(userId: snapshot.data!.uid);
+        // Agar data aa gaya hai aur user ka record maujood hai
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final userRole = snapshot.data!.data()!['role'];
+
+          if (userRole == 'police') {
+            return const PoliceBottomNavScreen();
+          } else {
+            return const OwnerBottomNavScreen();
+          }
         }
 
-        return const AuthSelectorScreen();
-      },
-    );
-  }
-}
-
-class RoleBasedRedirect extends StatelessWidget {
-  final String userId;
-  const RoleBasedRedirect({super.key, required this.userId});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-      builder: (context, userSnapshot) {
-        if (userSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (userSnapshot.hasError || !userSnapshot.hasData || !userSnapshot.data!.exists) {
-          return const AuthSelectorScreen();
-        }
-
-        final data = userSnapshot.data!.data() as Map<String, dynamic>;
-        final String role = data['role'] ?? 'owner';
-
-        if (role == 'police') {
-          return const PoliceBottomNavScreen();
-        } else {
-          return const OwnerBottomNavScreen();
-        }
+        // Agar user authenticated hai lekin Firestore mein record nahi hai,
+        // to use logout kar dein.
+        return Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("User data not found. Logging out."),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => FirebaseAuth.instance.signOut(),
+                  child: const Text("Logout"),
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }

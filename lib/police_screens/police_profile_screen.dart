@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:vehicle_verified/auth_screens/auth_selector_screen.dart';
 import 'package:vehicle_verified/about_us_screen.dart';
@@ -155,11 +156,8 @@ class PoliceProfileScreen extends StatelessWidget {
     return ElevatedButton.icon(
       icon: const Icon(Icons.logout, color: Colors.white),
       label: const Text('Logout', style: TextStyle(color: Colors.white, fontSize: 16)),
-      onPressed: () {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const AuthSelectorScreen()),
-              (Route<dynamic> route) => false,
-        );
+      onPressed: () async{
+        await FirebaseAuth.instance.signOut();
       },
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.red.shade700,

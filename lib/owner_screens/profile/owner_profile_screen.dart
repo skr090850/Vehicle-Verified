@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:vehicle_verified/auth_screens/auth_selector_screen.dart';
 import 'package:vehicle_verified/owner_screens/profile/edit_profile_screen.dart';
@@ -205,12 +207,15 @@ class OwnerProfileScreen extends StatelessWidget {
       child: OutlinedButton.icon(
         icon: const Icon(Icons.logout),
         label: const Text('Logout'),
-        onPressed: () {
+        onPressed: () async{
+          print("Logout button pressed...");
+          await FirebaseAuth.instance.signOut();
+          print("Firebase sign-out called. User should be null now.");
           // Navigate to the initial screen and clear the navigation stack.
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const AuthSelectorScreen()),
-                (Route<dynamic> route) => false,
-          );
+          // Navigator.of(context).pushAndRemoveUntil(
+          //   MaterialPageRoute(builder: (context) => const AuthSelectorScreen()),
+          //       (Route<dynamic> route) => false,
+          // );
         },
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.red,
