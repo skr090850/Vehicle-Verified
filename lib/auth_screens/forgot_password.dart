@@ -112,7 +112,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
   Widget _buildHeader(String imageAsset) {
     return Column(
       children: [
-        Image.asset(imageAsset, height: 200, fit: BoxFit.contain),
+        // Image.asset(imageAsset, height: 200, fit: BoxFit.contain),
+        Icon(Icons.lock_reset, size: 80, color: AppColors.primaryColorOwner),
         const SizedBox(height: 24),
         const Text(
           'Enter your registered email address to receive a password reset link.',
