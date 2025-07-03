@@ -42,7 +42,7 @@ Here's a glimpse of the VehicleVerified app in action.
 |:----------------------------------------------------:|:----------------------------------------------------:|:------------------------------------------------------:|
 |    ![Landing Page](assets/image/landing_page.jpg)    | ![Owner Dashboard](assets/image/owner_dashboard.jpg) | ![Police Dashboard](assets/image/police_dashboard.jpg) |
 |                 **Vehicle Details**                  |                 **Service Booking**                  |                  **Verified Screen**                   |
-| ![Vehicle Details](assets/image/vehicle_details.jpg) |     ![Service Booking](assets/image/service.jpg)     | ![Police Dashboard](assets/image/verified_screen.jpg)  |
+| ![Vehicle Details](assets/image/vehicle_details.jpg) |     ![Service Booking](assets/image/service.jpg)     |  ![Verified Screen](assets/image/verified_screen.jpg)  |
 
 ## 🛠️ Tech Stack
 
