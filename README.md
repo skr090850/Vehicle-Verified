@@ -38,11 +38,11 @@ The application is split into two primary user roles with a rich feature set.
 
 Here's a glimpse of the VehicleVerified app in action.
 
-|                     Landing Page                     |                   Owner Dashboard                    |                Traffic Police Dashboard                 |
-|:----------------------------------------------------:|:----------------------------------------------------:|:-------------------------------------------------------:|
-|    ![Landing Page](assets/image/landing_page.jpg)    | ![Owner Dashboard](assets/image/owner_dashboard.jpg) | ![Police Dashboard](assets/image/police_dashboard.jpg)  |
-|                 **Vehicle Details**                  |                 **Service Booking**                  |                   **Verified Screen**                   |
-| ![Vehicle Details](assets/image/vehicle_details.jpg) |     ![Service Booking](assets/image/service.jpg)     |  ![Verified Screen](assets\image\verified_screen.jpg)  |
+|                     Landing Page                     |                   Owner Dashboard                    |                Traffic Police Dashboard                |
+|:----------------------------------------------------:|:----------------------------------------------------:|:------------------------------------------------------:|
+|    ![Landing Page](assets/image/landing_page.jpg)    | ![Owner Dashboard](assets/image/owner_dashboard.jpg) | ![Police Dashboard](assets/image/police_dashboard.jpg) |
+|                 **Vehicle Details**                  |                 **Service Booking**                  |                  **Verified Screen**                   |
+| ![Vehicle Details](assets/image/vehicle_details.jpg) |     ![Service Booking](assets/image/service.jpg)     |  ![Verified Screen](assets/image/verified_screen.jpg)  |
 
 ## 🛠️ Tech Stack
 
@@ -67,7 +67,7 @@ To get a local copy up and running, follow these simple steps.
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/vehicle-verified.git](https://github.com/your-username/vehicle-verified.git)
+    git clone [https://github.com/skr090850/vehicle-verified.git](https://github.com/skr090850/vehicle-verified.git)
     ```
 
 2.  **Set up Firebase:**
