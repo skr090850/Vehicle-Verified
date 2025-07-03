@@ -38,11 +38,11 @@ The application is split into two primary user roles with a rich feature set.
 
 Here's a glimpse of the VehicleVerified app in action.
 
-|                     Landing Page                      |                   Owner Dashboard                    |                  Traffic Police Dashboard                  |
-|:-----------------------------------------------------:|:----------------------------------------------------:|:----------------------------------------------------------:|
-|    ![Landing Page](assets/assets/landing_page.jpg)    | ![Owner Dashboard](assets/image/owner_dashboard.jpg) |  ![Police Dashboard](assets/assets/police_dashboard.jpg)   |
-|                  **Vehicle Details**                  |                 **Service Booking**                  |                            **Verified Screen**                            |
-| ![Vehicle Details](assets/assets/vehicle_details.jpg) |    ![Service Booking](assets/assets/service.jpg)     | ![Verified Screen](assets/screenshots/verified_screen.jpg) |
+|                     Landing Page                     |                   Owner Dashboard                    |                Traffic Police Dashboard                |
+|:----------------------------------------------------:|:----------------------------------------------------:|:------------------------------------------------------:|
+|    ![Landing Page](assets/image/landing_page.jpg)    | ![Owner Dashboard](assets/image/owner_dashboard.jpg) | ![Police Dashboard](assets/image/police_dashboard.jpg) |
+|                 **Vehicle Details**                  |                 **Service Booking**                  |                  **Verified Screen**                   |
+| ![Vehicle Details](assets/image/vehicle_details.jpg) |     ![Service Booking](assets/image/service.jpg)     |  ![Verified Screen](assets/image/verified_screen.jpg)  |
 
 ## 🛠️ Tech Stack
 
