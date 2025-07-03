@@ -2,7 +2,7 @@
 
 **VehicleVerified** is a comprehensive mobile application built with Flutter and Firebase, designed to digitize and simplify the management and verification of vehicle documents. The app provides a secure and efficient platform for both vehicle owners and traffic enforcement officials, inspired by a modern, user-centric interface.
 
-![App Banner](https://placehold.co/1200x400/0D47A1/FFFFFF?text=VehicleVerified)
+![App Banner](https://placehold.co/1200x400/1A237E/FFFFFF?text=VehicleVerified)
 
 ## 🚀 Core Features
 
@@ -67,7 +67,7 @@ To get a local copy up and running, follow these simple steps.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/vehicle-verified.git
+    git clone [https://github.com/your-username/vehicle-verified.git](https://github.com/your-username/vehicle-verified.git)
     ```
 
 2.  **Set up Firebase:**
