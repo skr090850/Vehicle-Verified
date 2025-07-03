@@ -40,7 +40,7 @@ Here's a glimpse of the VehicleVerified app in action.
 
 |                       Landing Page                       | Vehicle Details | Police Scanner |
 |:--------------------------------------------------------:|:---:|:---:|
-|   ![Landing Page](assets/screenshots/landing_page.jpg)   | ![Vehicle Details](assets/screenshots/vehicle_details.png) | ![Police Scanner](assets/screenshots/police_scanner.png) |
+|   ![Landing Page](assets/screenshots/landing_page.jpg)   | ![Vehicle Details](assets/image/owner_dashboard.jpg) | ![Police Scanner](assets/screenshots/police_scanner.png) |
 |                    **Profile Screen**                    | **Service Booking** | **Verification Result** |
 | ![Profile Screen](assets/screenshots/profile_screen.png) | ![Service Booking](assets/screenshots/service_booking.png) | ![Verification Result](assets/screenshots/verification_result.png) |
 
