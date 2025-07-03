@@ -38,11 +38,11 @@ The application is split into two primary user roles with a rich feature set.
 
 Here's a glimpse of the VehicleVerified app in action.
 
-| Landing Page                                                                           | Owner Dashboard                                                                     | Traffic Police Dashboard                                                            |
-|:---------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------|
-| ![Landing Page]("https://drive.google.com/file/d/1kuCgkVyf3d-ZnUfyUGp6GnmkND-MGYW1/view?usp=drive_link") | ![Owner Dashboard](""C:\Flutter Project\vehicle_verified\assets\image\owner_dashboard.jpg"")       | ![Police Dashboard](https://placehold.co/300x600/212121/FFFFFF?text=Police+Scanner) |
-| **Profile Screen**                                                                     | **Service Booking**                                                                 | **Verification Result**                                                             |
-| ![Profile Screen](https://placehold.co/300x600/E3F2FD/000000?text=Profile+Screen)      | ![Service Booking](https://placehold.co/300x600/E3F2FD/000000?text=Service+Booking) | ![Verification Result](https://placehold.co/300x600/4CAF50/FFFFFF?text=VERIFIED)    |
+| Landing Page                                                                                           | Owner Dashboard                                                                                | Traffic Police Dashboard                                                            |
+|:-------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------|
+| ![Landing Page](https://drive.google.com/file/d/1kuCgkVyf3d-ZnUfyUGp6GnmkND-MGYW1/view?usp=drive_link) | ![Owner Dashboard](C:\Flutter Project\vehicle_verified\assets\image\owner_dashboard.jpg)       | ![Police Dashboard](https://placehold.co/300x600/212121/FFFFFF?text=Police+Scanner) |
+| **Profile Screen**                                                                                     | **Service Booking**                                                                            | **Verification Result**                                                             |
+| ![Profile Screen](https://placehold.co/300x600/E3F2FD/000000?text=Profile+Screen)                      | ![Service Booking](https://placehold.co/300x600/E3F2FD/000000?text=Service+Booking)            | ![Verification Result](https://placehold.co/300x600/4CAF50/FFFFFF?text=VERIFIED)    |
 
 ## 🛠️ Tech Stack
 
