@@ -17,7 +17,6 @@ class AuthWrapper extends StatelessWidget {
         if (snapshot.hasData) {
           return RoleBasedRedirect(userId: snapshot.data!.uid);
         }
-        // Agar user login nahi hai, to AuthSelectorScreen dikhayein
         else {
           return const AuthSelectorScreen();
         }
@@ -38,20 +37,17 @@ class _RoleBasedRedirectState extends State<RoleBasedRedirect> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      // Firestore se user ka data get karein
       future: FirebaseFirestore.instance
           .collection('users')
           .doc(widget.userId)
           .get(),
       builder: (context, snapshot) {
-        // Jab tak data aa raha hai, loading indicator dikhayein
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Agar data aa gaya hai aur user ka record maujood hai
         if (snapshot.hasData && snapshot.data!.exists) {
           final userRole = snapshot.data!.data()!['role'];
 
@@ -62,8 +58,6 @@ class _RoleBasedRedirectState extends State<RoleBasedRedirect> {
           }
         }
 
-        // Agar user authenticated hai lekin Firestore mein record nahi hai,
-        // to use logout kar dein.
         return Scaffold(
           body: Center(
             child: Column(
