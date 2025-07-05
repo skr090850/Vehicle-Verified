@@ -13,7 +13,6 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Agar user login hai, to RoleBasedRedirect dikhayein
         if (snapshot.hasData) {
           return RoleBasedRedirect(userId: snapshot.data!.uid);
         }
