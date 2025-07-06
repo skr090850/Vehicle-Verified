@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart';
-import 'package:vehicle_verified/themes/color.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart';
+import 'package:vehicle_verified/themes/color.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> vehicle;
@@ -15,7 +14,6 @@ class VehicleDetailsScreen extends StatefulWidget {
 }
 
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
-
   Future<void> _deleteVehicle() async {
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
@@ -25,11 +23,11 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
           content: const Text('Are you sure you want to permanently delete this vehicle and all its data? This action cannot be undone.'),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false), // Cancel
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(true), // Delete
+              onPressed: () => Navigator.of(context).pop(true),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Delete'),
             ),
@@ -41,12 +39,10 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     if (confirmDelete == true) {
       try {
         final vehicleRef = FirebaseFirestore.instance.collection('vehicles').doc(widget.vehicle['id']);
-
         final documentsSnapshot = await vehicleRef.collection('documents').get();
         for (var doc in documentsSnapshot.docs) {
           await doc.reference.delete();
         }
-
         await vehicleRef.delete();
 
         if (mounted) {
@@ -64,28 +60,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       }
     }
   }
-  final List<Map<String, dynamic>> _documents = [
-    {
-      "type": "Registration Certificate (RC)",
-      "status": "valid",
-      "expiry": "Lifetime",
-    },
-    {
-      "type": "Insurance Policy",
-      "status": "expiring",
-      "expiry": "2024-07-28",
-    },
-    {
-      "type": "Pollution Under Control (PUC)",
-      "status": "expired",
-      "expiry": "2024-05-10",
-    },
-    {
-      "type": "Owner's Manual",
-      "status": "missing",
-      "expiry": "N/A",
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -94,46 +68,71 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       body: CustomScrollView(
         slivers: [
           _buildSliverAppBar(),
-          SliverList(
-            delegate: SliverChildListDelegate(
-              [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildVehicleInfoCard(),
-                      const SizedBox(height: 24),
-                      _buildSectionHeader('Vehicle Documents'),
-                      const SizedBox(height: 12),
-                      ..._documents.map((doc) => _buildDocumentCard(doc)).toList(),
-                    ],
-                  ),
-                ),
-              ],
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildVehicleInfoCard(),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader('Vehicle Documents'),
+                  const SizedBox(height: 12),
+                  // --- START: FIREBASE DATA FETCH ---
+                  _buildDocumentsList(),
+                  // --- END: FIREBASE DATA FETCH ---
+                ],
+              ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.delete_forever, color: Colors.white),
-          label: const Text('Delete Vehicle', style: TextStyle(color: Colors.white, fontSize: 16)),
-          onPressed: _deleteVehicle,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade700,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ),
+      bottomNavigationBar: _buildDeleteVehicleButton(), // Delete button
+    );
+  }
+
+  /// Documents ki list fetch aur display karne ke liye naya widget
+  Widget _buildDocumentsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('vehicles')
+          .doc(widget.vehicle['id'])
+          .collection('documents')
+          .orderBy('uploadedAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        // Loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        // Error state
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        // Data na hone par
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildMissingDocumentCard();
+        }
+
+        // Documents ki list ko build karein
+        final documents = snapshot.data!.docs;
+        return ListView.builder(
+          itemCount: documents.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemBuilder: (context, index) {
+            final doc = documents[index];
+            final docData = doc.data() as Map<String, dynamic>;
+            return _buildDocumentCard(docData);
+          },
+        );
+      },
     );
   }
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: 300.0,
+      expandedHeight: 250.0,
       pinned: true,
       backgroundColor: AppColors.primaryColorOwner,
       iconTheme: const IconThemeData(color: Colors.white),
@@ -141,12 +140,12 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
         centerTitle: true,
         title: Text(
           '${widget.vehicle['make']} ${widget.vehicle['model']}',
-          style: TextStyle(color:Colors.white, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         background: Image.asset(
           widget.vehicle['image'] ?? 'assets/image/car_sedan.png',
-          // fit: BoxFit.cover,
-          color: Colors.black.withOpacity(0.1),
+          fit: BoxFit.cover,
+          color: Colors.black.withOpacity(0.2),
           colorBlendMode: BlendMode.darken,
         ),
       ),
@@ -167,12 +166,11 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Divider(height: 24),
-            _buildInfoRow('Registration No.', widget.vehicle['number'] ?? 'N/A'),
-            _buildInfoRow('Make', widget.vehicle['make'] ?? 'N/A'),
-            _buildInfoRow('Model', widget.vehicle['model'] ?? 'N/A'),
-            // Add more details from your data model here
-            _buildInfoRow('Engine No.', 'ENG12345XYZ'),
-            _buildInfoRow('Chassis No.', 'CHS67890ABC'),
+            _buildInfoRow('Registration No.:', widget.vehicle['registrationNumber'] ?? 'N/A'),
+            _buildInfoRow('Company name:', widget.vehicle['make']??'N/A'),
+            _buildInfoRow('Model No.:', widget.vehicle['model']??'N/A'),
+            _buildInfoRow('Engine No.:', widget.vehicle['engineNumber'] ?? 'N/A'),
+            _buildInfoRow('Chassis No.:', widget.vehicle['chassisNumber'] ?? 'N/A'),
           ],
         ),
       ),
@@ -199,34 +197,31 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     );
   }
 
-  // vehicle_details_screen.dart mein is function ko replace karein
+  /// Document card jo ab real data lega
+  Widget _buildDocumentCard(Map<String, dynamic> docData) {
+    final String docType = docData['documentType'] ?? 'Unknown Document';
+    final Timestamp? expiryTimestamp = docData['expiryDate'];
+    final DateTime? expiryDate = expiryTimestamp?.toDate();
 
-  Widget _buildDocumentCard(Map<String, dynamic> doc) {
-    final status = doc['status'];
-    final Color statusColor;
-    final IconData statusIcon;
-    final String actionText;
+    String status = 'valid';
+    String expiryText = 'Lifetime';
+    Color statusColor = Colors.green.shade700;
+    IconData statusIcon = Icons.check_circle;
+    String actionText = 'View';
 
-    switch (status) {
-      case 'valid':
-        statusColor = Colors.green.shade700;
-        statusIcon = Icons.check_circle;
-        actionText = 'View';
-        break;
-      case 'expiring':
-        statusColor = Colors.orange.shade700;
-        statusIcon = Icons.warning_amber_rounded;
-        actionText = 'Renew';
-        break;
-      case 'expired':
+    if (expiryDate != null) {
+      expiryText = DateFormat('dd MMM, yyyy').format(expiryDate);
+      if (expiryDate.isBefore(DateTime.now())) {
+        status = 'expired';
         statusColor = Colors.red.shade700;
         statusIcon = Icons.error;
         actionText = 'Update';
-        break;
-      default: // missing
-        statusColor = Colors.grey.shade600;
-        statusIcon = Icons.add_circle_outline;
-        actionText = 'Upload';
+      } else if (expiryDate.isBefore(DateTime.now().add(const Duration(days: 30)))) {
+        status = 'expiring';
+        statusColor = Colors.orange.shade700;
+        statusIcon = Icons.warning_amber_rounded;
+        actionText = 'Renew';
+      }
     }
 
     return Card(
@@ -243,9 +238,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(doc['type'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(docType, style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text(
-                    'Expires: ${doc['expiry']}',
+                    'Expires: $expiryText',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                 ],
@@ -253,12 +248,12 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
             ),
             TextButton(
               onPressed: () {
-                if (status == 'missing' || status == 'expired') {
+                if (status == 'expired') {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => AddEditDocumentScreen(
-                        documentType: doc['type'],
+                        documentType: docType,
                         vehicleId: widget.vehicle['id'],
                       ),
                     ),
@@ -269,6 +264,67 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               child: Text(actionText),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Jab koi document na ho to yeh card dikhega
+  Widget _buildMissingDocumentCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Icon(Icons.folder_off_outlined, size: 40, color: Colors.grey),
+            const SizedBox(height: 8),
+            const Text(
+              'No Documents Found',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Upload documents for this vehicle to see them here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.upload_file, size: 18),
+              label: const Text('Upload First Document'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddEditDocumentScreen(
+                      documentType: 'Registration Certificate (RC)', // Default type
+                      vehicleId: widget.vehicle['id'],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Delete button
+  Widget _buildDeleteVehicleButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.delete_forever, color: Colors.white),
+        label: const Text('Delete Vehicle', style: TextStyle(color: Colors.white, fontSize: 16)),
+        onPressed: _deleteVehicle,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red.shade700,
+          minimumSize: const Size(double.infinity, 50),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
