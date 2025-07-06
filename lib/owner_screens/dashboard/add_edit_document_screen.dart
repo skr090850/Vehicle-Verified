@@ -1,10 +1,21 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Add 'intl' package to pubspec.yaml
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vehicle_verified/themes/color.dart';
 
 class AddEditDocumentScreen extends StatefulWidget {
   final String documentType;
+  final String vehicleId;
 
-  const AddEditDocumentScreen({super.key, required this.documentType});
+  const AddEditDocumentScreen({
+    super.key,
+    required this.documentType,
+    required this.vehicleId,
+  });
 
   @override
   _AddEditDocumentScreenState createState() => _AddEditDocumentScreenState();
@@ -12,7 +23,28 @@ class AddEditDocumentScreen extends StatefulWidget {
 
 class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
   DateTime? _expiryDate;
+  File? _selectedImageFile; // Select ki gayi file ko store karne ke liye
+  bool _isUploading = false; // Uploading status track karne ke liye
 
+  /// Gallery ya Camera se image select karne ka function
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: source, imageQuality: 80);
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick image: $e')),
+      );
+    }
+  }
+
+  /// Date select karne ka function
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -27,37 +59,105 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
     }
   }
 
+  /// File ko upload aur save karne ka function
+  Future<void> _uploadAndSaveDocument() async {
+    if (_selectedImageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a document image to upload.')),
+      );
+      return;
+    }
+    if (_expiryDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an expiry date.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("User not logged in");
+
+      // Step 1: File ko Firebase Storage par upload karein
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storagePath = 'documents/${user.uid}/${widget.vehicleId}/$fileName';
+      final storageRef = FirebaseStorage.instance.ref().child(storagePath);
+
+      await storageRef.putFile(_selectedImageFile!);
+      final String downloadUrl = await storageRef.getDownloadURL();
+
+      // Step 2: Document ki details ko Firestore mein save karein
+      await FirebaseFirestore.instance
+          .collection('vehicles')
+          .doc(widget.vehicleId)
+          .collection('documents')
+          .add({
+        'documentType': widget.documentType,
+        'documentURL': downloadUrl,
+        'expiryDate': Timestamp.fromDate(_expiryDate!),
+        'uploadedAt': Timestamp.now(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document uploaded successfully!'), backgroundColor: Colors.green),
+        );
+        Navigator.of(context).pop();
+      }
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload document: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add ${widget.documentType}'),
-        backgroundColor: Colors.blue.shade700,
+        title: Text('Add ${widget.documentType}', style: const TextStyle(color: Colors.white)),
+        backgroundColor: AppColors.primaryColorOwner,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Upload Button
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
-              ),
-              child: InkWell(
-                onTap: () {
-                  // TODO: Implement image picker logic (from camera or gallery)
-                  print("Upload document tapped");
-                },
-                child: const Column(
+            // Upload Button ya Selected Image
+            GestureDetector(
+              onTap: () => _showImageSourceDialog(context),
+              child: Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+                ),
+                child: _selectedImageFile != null
+                    ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(_selectedImageFile!, fit: BoxFit.cover),
+                )
+                    : const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.cloud_upload, size: 50, color: Colors.grey),
+                    Icon(Icons.cloud_upload_outlined, size: 50, color: Colors.grey),
                     SizedBox(height: 8),
-                    Text('Tap to upload document'),
+                    Text('Tap to select document'),
                   ],
                 ),
               ),
@@ -72,7 +172,7 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
               subtitle: Text(
                 _expiryDate == null
                     ? 'Select a date'
-                    : DateFormat('dd/MM/yyyy').format(_expiryDate!), // CHANGED: Date format updated
+                    : DateFormat('dd MMM, yyyy').format(_expiryDate!),
               ),
               trailing: const Icon(Icons.arrow_drop_down),
               onTap: () => _selectDate(context),
@@ -80,17 +180,48 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
             const Spacer(),
 
             // Save Button
-            ElevatedButton(
-              onPressed: () {
-                // TODO: Implement save logic to Firestore
-                print("Saving document...");
-                Navigator.of(context).pop();
-              },
+            _isUploading
+                ? const Center(child: CircularProgressIndicator())
+                : ElevatedButton.icon(
+              icon: const Icon(Icons.save, color: Colors.white),
+              label: const Text('Save Document', style: TextStyle(color: Colors.white)),
+              onPressed: _uploadAndSaveDocument,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
+                backgroundColor: AppColors.primaryColorOwner,
                 minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Save Document'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Camera ya Gallery choose karne ke liye dialog
+  void _showImageSourceDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Source'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(ImageSource.gallery);
+              },
             ),
           ],
         ),

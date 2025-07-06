@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vehicle_verified/themes/color.dart';
 
 class AddVehicleScreen extends StatefulWidget {
@@ -10,7 +12,9 @@ class AddVehicleScreen extends StatefulWidget {
 }
 
 class _AddVehicleScreenState extends State<AddVehicleScreen> {
+  final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
+  bool _isLoading = false;
 
   // Controllers for all the text fields
   final _makeController = TextEditingController();
@@ -23,13 +27,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _insuranceProviderController = TextEditingController();
   final _pucProviderController = TextEditingController();
 
+  String? _selectedVehicleType;
+  final List<String> _vehicleTypes = ['Two Wheeler', 'Three Wheeler', 'Four Wheeler'];
+
   DateTime? _registeredDate;
   DateTime? _insuranceExpiryDate;
   DateTime? _pucExpiryDate;
-
-  // To store selected file names (simulation)
-  String? _insurancePaperName;
-  String? _pucPaperName;
 
   @override
   void dispose() {
@@ -50,7 +53,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
+      firstDate: DateTime(1980),
       lastDate: DateTime(2050),
     );
     if (picked != null) {
@@ -60,62 +63,142 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     }
   }
 
-  void _selectFile(Function(String) onFileSelected) {
-    // This is a simulation. In a real app, you would use a package
-    // like 'file_picker' to let the user select a file.
+  Future<void> _saveVehicle() async {
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all required fields in all steps.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
     setState(() {
-      onFileSelected('document.pdf');
+      _isLoading = true;
     });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception("User not logged in.");
+      }
+
+      String imagePath = 'assets/image/car_sedan.png';
+      if (_selectedVehicleType == 'Two Wheeler') {
+        imagePath = 'assets/image/scooter.png';
+      } else if (_selectedVehicleType == 'Three Wheeler') {
+        imagePath = 'assets/image/tempo.png';
+      }
+
+      // Create the main vehicle document
+      DocumentReference vehicleRef = await FirebaseFirestore.instance.collection('vehicles').add({
+        'ownerID': user.uid,
+        'make': _makeController.text.trim(),
+        'model': _modelController.text.trim(),
+        'registrationNumber': _regNumberController.text.trim().toUpperCase(),
+        'engineNumber': _engineNumberController.text.trim(),
+        'chassisNumber': _chassisNumberController.text.trim(),
+        'vin': _vinController.text.trim(),
+        'registeredDate': _registeredDate != null ? Timestamp.fromDate(_registeredDate!) : null,
+        'vehicleType': _selectedVehicleType,
+        'image': imagePath,
+        'createdAt': Timestamp.now(),
+        'status': 'Documents Pending',
+        'health': 'Unknown',
+      });
+
+      // Add Insurance as a sub-collection document
+      if (_policyNumberController.text.isNotEmpty) {
+        await vehicleRef.collection('documents').add({
+          'documentType': 'Insurance Policy',
+          'policyNumber': _policyNumberController.text.trim(),
+          'provider': _insuranceProviderController.text.trim(),
+          'expiryDate': _insuranceExpiryDate != null ? Timestamp.fromDate(_insuranceExpiryDate!) : null,
+          'uploadedAt': Timestamp.now(),
+        });
+      }
+
+      // Add PUC as a sub-collection document
+      if (_pucProviderController.text.isNotEmpty) {
+        await vehicleRef.collection('documents').add({
+          'documentType': 'Pollution Under Control (PUC)',
+          'provider': _pucProviderController.text.trim(),
+          'expiryDate': _pucExpiryDate != null ? Timestamp.fromDate(_pucExpiryDate!) : null,
+          'uploadedAt': Timestamp.now(),
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vehicle and documents added successfully!'), backgroundColor: Colors.green),
+        );
+        Navigator.of(context).pop();
+      }
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add vehicle: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Vehicle', style: TextStyle(color: AppColors.textPrimary)),
+        title: const Text('Add New Vehicle', style: TextStyle(color: Colors.white)),
         backgroundColor: AppColors.primaryColorOwner,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Stepper(
-        type: StepperType.vertical,
-        currentStep: _currentStep,
-        onStepContinue: () {
-          if (_currentStep < 3) {
-            setState(() => _currentStep += 1);
-          } else {
-            // Last step, save the vehicle
-            // TODO: Implement save logic
-            print('Saving vehicle...');
-            Navigator.of(context).pop();
-          }
-        },
-        onStepCancel: () {
-          if (_currentStep > 0) {
-            setState(() => _currentStep -= 1);
-          }
-        },
-        onStepTapped: (step) => setState(() => _currentStep = step),
-        steps: _buildSteps(),
-        controlsBuilder: (context, details) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 16.0),
-            child: Row(
-              children: [
-                ElevatedButton(
-                  onPressed: details.onStepContinue,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryColorOwner),
-                  child: Text(_currentStep == 3 ? 'SAVE' : 'NEXT', style: const TextStyle(color: Colors.white)),
-                ),
-                const SizedBox(width: 12),
-                if (_currentStep > 0)
-                  TextButton(
-                    onPressed: details.onStepCancel,
-                    child: const Text('BACK'),
+      body: Form(
+        key: _formKey,
+        child: Stepper(
+          type: StepperType.vertical,
+          currentStep: _currentStep,
+          onStepContinue: () {
+            final isLastStep = _currentStep == _buildSteps().length - 1;
+            if (isLastStep) {
+              _saveVehicle();
+            } else {
+              setState(() => _currentStep += 1);
+            }
+          },
+          onStepCancel: () {
+            if (_currentStep > 0) {
+              setState(() => _currentStep -= 1);
+            }
+          },
+          onStepTapped: (step) => setState(() => _currentStep = step),
+          steps: _buildSteps(),
+          controlsBuilder: (context, details) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: details.onStepContinue,
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryColorOwner),
+                    child: _isLoading
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(_currentStep == _buildSteps().length - 1 ? 'SAVE VEHICLE' : 'NEXT', style: const TextStyle(color: Colors.white)),
                   ),
-              ],
-            ),
-          );
-        },
+                  const SizedBox(width: 12),
+                  if (_currentStep > 0)
+                    TextButton(
+                      onPressed: details.onStepCancel,
+                      child: const Text('BACK'),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -127,13 +210,22 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         isActive: _currentStep >= 0,
         state: _currentStep > 0 ? StepState.complete : StepState.indexed,
         content: Column(children: [
+          DropdownButtonFormField<String>(
+            value: _selectedVehicleType,
+            decoration: const InputDecoration(labelText: 'Vehicle Type', border: OutlineInputBorder()),
+            hint: const Text('Select vehicle type'),
+            items: _vehicleTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+            onChanged: (value) => setState(() => _selectedVehicleType = value),
+            validator: (value) => value == null ? 'Please select a type' : null,
+          ),
+          const SizedBox(height: 16),
           _buildTextField(controller: _makeController, label: 'Vehicle Make (e.g., Honda)'),
           _buildTextField(controller: _modelController, label: 'Vehicle Model (e.g., Activa)'),
-          _buildTextField(controller: _regNumberController, label: 'License Plate Number'),
+          _buildTextField(controller: _regNumberController, label: 'License Plate Number', isUpperCase: true),
         ]),
       ),
       Step(
-        title: const Text('Registration Certificate (RC)'),
+        title: const Text('Registration Details'),
         isActive: _currentStep >= 1,
         state: _currentStep > 1 ? StepState.complete : StepState.indexed,
         content: Column(children: [
@@ -152,17 +244,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         isActive: _currentStep >= 2,
         state: _currentStep > 2 ? StepState.complete : StepState.indexed,
         content: Column(children: [
-          _buildTextField(controller: _policyNumberController, label: 'Policy Number'),
-          _buildTextField(controller: _insuranceProviderController, label: 'Insurance Provider'),
+          _buildTextField(controller: _policyNumberController, label: 'Policy Number', isOptional: true),
+          _buildTextField(controller: _insuranceProviderController, label: 'Insurance Provider', isOptional: true),
           _buildDateField(
             label: 'Insurance Expiry Date',
             date: _insuranceExpiryDate,
             onTap: () => _selectDate(context, (date) => _insuranceExpiryDate = date),
-          ),
-          _buildFileField(
-            label: 'Insurance Paper',
-            fileName: _insurancePaperName,
-            onTap: () => _selectFile((name) => _insurancePaperName = name),
           ),
         ]),
       ),
@@ -171,33 +258,34 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         isActive: _currentStep >= 3,
         state: _currentStep > 3 ? StepState.complete : StepState.indexed,
         content: Column(children: [
-          _buildTextField(controller: _pucProviderController, label: 'PUC Provider'),
-          // You can add more fields like 'Emission Levels' if needed
+          _buildTextField(controller: _pucProviderController, label: 'PUC Provider', isOptional: true),
           _buildDateField(
             label: 'PUC Expiry Date',
             date: _pucExpiryDate,
             onTap: () => _selectDate(context, (date) => _pucExpiryDate = date),
-          ),
-          _buildFileField(
-            label: 'Pollution Paper',
-            fileName: _pucPaperName,
-            onTap: () => _selectFile((name) => _pucPaperName = name),
           ),
         ]),
       ),
     ];
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label}) {
+  Widget _buildTextField({required TextEditingController controller, required String label, bool isUpperCase = false, bool isOptional = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
         controller: controller,
+        textCapitalization: isUpperCase ? TextCapitalization.characters : TextCapitalization.words,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
+        validator: (value) {
+          if (!isOptional && (value == null || value.isEmpty)) {
+            return 'Please enter $label';
+          }
+          return null;
+        },
       ),
     );
   }
@@ -214,34 +302,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
           child: Text(
-            date != null ? DateFormat('dd MMM, yyyy').format(date) : 'Select Date',
-            style: TextStyle(color: date != null ? Colors.black : Colors.grey.shade700),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFileField({required String label, String? fileName, required VoidCallback onTap}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: InkWell(
-        onTap: onTap,
-        child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                fileName ?? 'Select File',
-                style: TextStyle(color: fileName != null ? Colors.black : Colors.grey.shade700),
-              ),
-              const Icon(Icons.attach_file, color: AppColors.primaryColorOwner),
-            ],
+            date != null ? DateFormat('dd MMM, yyyy').format(date) : 'Select Date (Optional)',
+            style: TextStyle(fontSize: 16, color: date != null ? Colors.black : Colors.grey.shade700),
           ),
         ),
       ),

@@ -18,11 +18,67 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
+  // Firebase instances (Firebase version ke liye zaroori)
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // State variables
   String _userName = "User";
   List<Map<String, dynamic>> _vehicles = [];
+
+  // --- START: MANUAL MOCK DATA FOR UI TESTING ---
+  // Firebase se data fetch karne ke liye isey comment kar dein
+  final String _mockUserName = "Suraj Kumar";
+  // final List<Map<String, dynamic>> _mockVehicles = [
+  //   {
+  //     'id': 'mock_vehicle_1',
+  //     'make': 'Honda',
+  //     'model': 'Activa 6G',
+  //     'registrationNumber': 'BR01AB1234',
+  //     'image': 'assets/image/scooter.png',
+  //     'status': 'All Documents Verified',
+  //     'health': 'Good',
+  //     'alerts': [
+  //       {'type': 'Insurance Policy', 'expiry': 'Expires in 25 days'}
+  //     ],
+  //     'services': [
+  //       {'name': 'General Service', 'date': '12 May 2024'}
+  //     ]
+  //   },
+  //   {
+  //     'id': 'mock_vehicle_2',
+  //     'make': 'Maruti Suzuki',
+  //     'model': 'Swift VXI',
+  //     'registrationNumber': 'DL05CD5678',
+  //     'image': 'assets/image/car_sedan.png',
+  //     'status': 'PUC Expired',
+  //     'health': 'Needs Attention',
+  //     'alerts': [
+  //       {'type': 'Pollution (PUC)', 'expiry': 'Expired 2 days ago'}
+  //     ],
+  //     'services': [
+  //       {'name': 'AC Repair', 'date': '22 Jun 2024'}
+  //     ]
+  //   },
+  //   {
+  //     'id': 'mock_vehicle_2',
+  //     'make': 'Maruti Suzuki',
+  //     'model': 'Swift VXI',
+  //     'registrationNumber': 'DL05CD5678',
+  //     'image': 'assets/image/car_sedan.png',
+  //     'status': 'PUC Expired',
+  //     'health': 'Needs Attention',
+  //     'alerts': [
+  //       {'type': 'Pollution (PUC)', 'expiry': 'Expired 2 days ago'}
+  //     ],
+  //     'services': [
+  //       {'name': 'AC Repair', 'date': '22 Jun 2024'}
+  //     ]
+  //   }
+  // ];
+  // --- END: MANUAL MOCK DATA ---
+
+  // ---START : For fetch data from Firebase---
 
   @override
   void initState() {
@@ -43,9 +99,66 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
-  void _showUploadDocumentDialog(
-      BuildContext context, Map<String, dynamic> vehicle) {
-    // ... (existing code remains the same)
+  void _showUploadDocumentSheet(BuildContext context, Map<String, dynamic> vehicle) {
+    final List<String> documentTypes = [
+      'Registration Certificate (RC)',
+      'Insurance Policy',
+      'Pollution Under Control (PUC)',
+      'Owner Manual',
+      'Other Document'
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      // Bottom sheet ke corners ko gol karne ke liye
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Content ke hisaab se height lega
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              const Text(
+                'Select Document to Upload',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              // Documents ki list
+              ListView.builder(
+                shrinkWrap: true,
+                itemCount: documentTypes.length,
+                itemBuilder: (BuildContext context, int index) {
+                  return ListTile(
+                    title: Text(documentTypes[index]),
+                    leading: const Icon(Icons.article_outlined),
+                    onTap: () {
+                      // Bottom sheet ko band karein
+                      Navigator.of(context).pop();
+
+                      // Upload screen par navigate karein
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AddEditDocumentScreen(
+                            documentType: documentTypes[index],
+                            vehicleId: vehicle['id'],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showFeaturesBottomSheet(BuildContext context) {
@@ -54,6 +167,41 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- START: MANUAL DATA USAGE ---
+    // _userName = _mockUserName;
+    // _vehicles = _mockVehicles;
+    // final bool hasVehicles = _vehicles.isNotEmpty;
+    //
+    // return Scaffold(
+    //   backgroundColor: AppColors.backgroundColorOwner,
+    //   appBar: _buildAppBar(hasVehicles),
+    //   body: hasVehicles
+    //       ? DefaultTabController(
+    //     length: _vehicles.length,
+    //     child: _buildMainDashboard(),
+    //   )
+    //       : _buildInteractiveEmptyState(),
+    //   floatingActionButton: hasVehicles
+    //       ? Padding(
+    //     padding: const EdgeInsets.only(bottom: 90.0),
+    //     child: FloatingActionButton(
+    //       onPressed: () {
+    //         Navigator.push(
+    //             context,
+    //             MaterialPageRoute(
+    //                 builder: (context) => const AddVehicleScreen()));
+    //       },
+    //       backgroundColor: AppColors.primaryColorOwner,
+    //       child: const Icon(Icons.add, color: Colors.white),
+    //       // label: const Text("", style: TextStyle(color: Colors.white)),
+    //     ),
+    //   )
+    //       : null,
+    // );
+    // --- END: MANUAL DATA USAGE ---
+
+
+    // --- START: FIREBASE DATA USAGE ---
     User? user = _auth.currentUser;
     if (user == null) {
       return const Scaffold(body: Center(child: Text("User not logged in.")));
@@ -80,18 +228,35 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           }).toList();
         }
 
-        return DefaultTabController(
-          length: hasVehicles ? _vehicles.length : 0,
-          child: Scaffold(
-            backgroundColor: AppColors.backgroundColorOwner,
-            appBar: _buildAppBar(hasVehicles),
-            body: hasVehicles
-                ? _buildMainDashboard()
-                : _buildInteractiveEmptyState(),
-          ),
+        return Scaffold(
+          backgroundColor: AppColors.backgroundColorOwner,
+          appBar: _buildAppBar(hasVehicles),
+          body: hasVehicles
+              ? DefaultTabController(
+                  length: _vehicles.length,
+                  child: _buildMainDashboard(),
+                )
+              : _buildInteractiveEmptyState(),
+          floatingActionButton: hasVehicles
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 90.0),
+                  child: FloatingActionButton(
+                    onPressed: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const AddVehicleScreen()));
+                    },
+                    backgroundColor: AppColors.primaryColorOwner,
+                    child: const Icon(Icons.add, color: Colors.white),
+                    // label: const Text("Add Vehicle", style: TextStyle(color: Colors.white)),
+                  ),
+                )
+              : null,
         );
       },
     );
+    // --- END: FIREBASE DATA USAGE ---
   }
 
   Widget _buildMainDashboard() {
@@ -123,7 +288,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildInteractiveEmptyState() {
     return SingleChildScrollView(
-      // FIX: Added bottom padding to avoid being hidden by the nav bar
       padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 120.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -243,7 +407,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           onPressed: () {},
         ),
         IconButton(
-          icon: const Icon(Icons.logout, color: AppColors.textPrimary),
+          icon: const Icon(Icons.logout, color: Colors.white),
           onPressed: () async {
             await FirebaseAuth.instance.signOut();
           },
@@ -307,7 +471,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     List<Map<String, String>>.from(vehicle['services'] ?? []);
 
     return SingleChildScrollView(
-      // FIX: Added bottom padding to avoid being hidden by the nav bar
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 120.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,7 +561,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         builder: (context) => const ViewAllDocumentsScreen()));
               }),
               _buildActionChip('Upload Doc', Icons.upload_file_outlined, () {
-                _showUploadDocumentDialog(context, vehicle);
+                _showUploadDocumentSheet(context, vehicle);
               }),
               _buildActionChip('Service History', Icons.history, () {
                 Navigator.push(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart';
 import 'package:vehicle_verified/themes/color.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
@@ -14,6 +15,62 @@ class VehicleDetailsScreen extends StatefulWidget {
 }
 
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
+  // _VehicleDetailsScreenState class ke andar yeh naya function daalein
+
+  Future<void> _deleteVehicle() async {
+    // User se confirmation ke liye dialog dikhayein
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Deletion'),
+          content: const Text('Are you sure you want to permanently delete this vehicle and all its data? This action cannot be undone.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Cancel
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true), // Delete
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Agar user ne 'Delete' confirm kiya hai
+    if (confirmDelete == true) {
+      try {
+        final vehicleRef = FirebaseFirestore.instance.collection('vehicles').doc(widget.vehicle['id']);
+
+        // Pehle saare sub-collections (documents, serviceHistory) ko delete karein
+        // Yahan hum sirf 'documents' ko handle kar rahe hain, aap 'serviceHistory' bhi add kar sakte hain
+        final documentsSnapshot = await vehicleRef.collection('documents').get();
+        for (var doc in documentsSnapshot.docs) {
+          await doc.reference.delete();
+        }
+
+        // Ab main vehicle document ko delete karein
+        await vehicleRef.delete();
+
+        if (mounted) {
+          // Deletion ke baad pichhli screen par wapas jayein
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vehicle deleted successfully'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete vehicle: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
   // --- MOCK DATA for documents ---
   // In a real app, this would be fetched from Firestore for the specific vehicle.
   final List<Map<String, dynamic>> _documents = [
@@ -67,7 +124,19 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildShowQrButton(),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.delete_forever, color: Colors.white),
+          label: const Text('Delete Vehicle', style: TextStyle(color: Colors.white, fontSize: 16)),
+          onPressed: _deleteVehicle, // Yahan naya function call hoga
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade700, // Delete ke liye red color
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
     );
   }
 
@@ -139,6 +208,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     );
   }
 
+  // vehicle_details_screen.dart mein is function ko replace karein
+
   Widget _buildDocumentCard(Map<String, dynamic> doc) {
     final status = doc['status'];
     final Color statusColor;
@@ -195,7 +266,11 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => AddEditDocumentScreen(documentType: doc['type']),
+                      // FIX: Yahan par vehicleId ko pass kiya gaya hai
+                      builder: (context) => AddEditDocumentScreen(
+                        documentType: doc['type'],
+                        vehicleId: widget.vehicle['id'], // YEH LINE ADD KI GAYI HAI
+                      ),
                     ),
                   );
                 }
@@ -204,47 +279,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               child: Text(actionText),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShowQrButton() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ElevatedButton.icon(
-        icon: const Icon(Icons.qr_code_2, color: Colors.white),
-        label: const Text('Show QR Code', style: TextStyle(color: Colors.white, fontSize: 16)),
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Text('Verification QR Code', textAlign: TextAlign.center),
-              content: SizedBox(
-                width: 250,
-                height: 250,
-                child: Center(
-                  child: QrImageView(
-                    data: widget.vehicle['id'] ?? 'no-id-found',
-                    version: QrVersions.auto,
-                    size: 250.0,
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
-                )
-              ],
-            ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryColorOwner,
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
