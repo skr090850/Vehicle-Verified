@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-
-// --- This line connects to the LoginScreen ---
-import 'login_screen.dart';
-import '../themes/color.dart';
+import 'package:vehicle_verified/auth_screens/login_screen.dart';
+import 'package:vehicle_verified/themes/color.dart';
 
 class AuthSelectorScreen extends StatelessWidget {
   const AuthSelectorScreen({super.key});
@@ -10,32 +8,35 @@ class AuthSelectorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('\nVehicle Verified',style: TextStyle(fontSize: 28,
-        fontWeight: FontWeight.bold,
-        color: AppColors.primaryColorOwner,),),
-      // backgroundColor: Colors.green[50],
+      appBar: AppBar(
+        title: Text(
+          '\nVehicle Verified',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primaryColorOwner,
+          ),
+        ),
         backgroundColor: AppColors.backgroundColorFirst,
         centerTitle: true,
-
       ),
-      // backgroundColor: Colors.green[50],
       backgroundColor: AppColors.backgroundColorFirst,
       body: SafeArea(
         child: Center(
-          child: Padding(
+          // SingleChildScrollView ka istemaal taaki content scroll ho sake
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Image.asset('assets/image/suv.png',height: 200,width: 200,),
+                // Pehle wala saara content wapas add kar diya gaya hai
+                Image.asset('assets/image/suv.png', height: 200, width: 200),
                 const Text(
-                  "\nTake control of your vehicle's\npaperwork, effortlessly.\nNavigate the road ahead with confidence,\nsupported by our app.\n",
+                  "\nTake control of your vehicle's\npaperwork effortlessly.\nNavigate the road ahead with confidence,\nsupported by our app.\n",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold,),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                // App Logo and Name
-                // Image.asset('assets/image/vehicle_verified_logo.png',height: 250,width: 250,),
                 Icon(
                   Icons.verified_user,
                   size: 80.0,
@@ -61,8 +62,6 @@ class AuthSelectorScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 30),
-
-                // Vehicle Owner Button
                 _buildRoleButton(
                   context: context,
                   icon: Icons.directions_car,
@@ -70,7 +69,6 @@ class AuthSelectorScreen extends StatelessWidget {
                   subtitle: 'Manage your vehicle documents.',
                   color: AppColors.primaryColorOwner,
                   onPressed: () {
-                    // --- Navigate to LoginScreen with 'owner' role ---
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -79,19 +77,14 @@ class AuthSelectorScreen extends StatelessWidget {
                     );
                   },
                 ),
-
                 const SizedBox(height: 20),
-
-                // Traffic Police Button
                 _buildRoleButton(
                   context: context,
                   icon: Icons.local_police,
                   title: 'Traffic Official',
                   subtitle: 'Scan & verify documents.',
                   color: Colors.red.shade700,
-
                   onPressed: () {
-                    // --- Navigate to LoginScreen with 'police' role ---
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -108,7 +101,7 @@ class AuthSelectorScreen extends StatelessWidget {
     );
   }
 
-  /// A helper method to build the role selection buttons to avoid code repetition.
+  /// Role selection button banane ke liye helper method
   Widget _buildRoleButton({
     required BuildContext context,
     required IconData icon,
