@@ -15,10 +15,8 @@ class VehicleDetailsScreen extends StatefulWidget {
 }
 
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
-  // _VehicleDetailsScreenState class ke andar yeh naya function daalein
 
   Future<void> _deleteVehicle() async {
-    // User se confirmation ke liye dialog dikhayein
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -40,23 +38,18 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       },
     );
 
-    // Agar user ne 'Delete' confirm kiya hai
     if (confirmDelete == true) {
       try {
         final vehicleRef = FirebaseFirestore.instance.collection('vehicles').doc(widget.vehicle['id']);
 
-        // Pehle saare sub-collections (documents, serviceHistory) ko delete karein
-        // Yahan hum sirf 'documents' ko handle kar rahe hain, aap 'serviceHistory' bhi add kar sakte hain
         final documentsSnapshot = await vehicleRef.collection('documents').get();
         for (var doc in documentsSnapshot.docs) {
           await doc.reference.delete();
         }
 
-        // Ab main vehicle document ko delete karein
         await vehicleRef.delete();
 
         if (mounted) {
-          // Deletion ke baad pichhli screen par wapas jayein
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Vehicle deleted successfully'), backgroundColor: Colors.green),
@@ -71,8 +64,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       }
     }
   }
-  // --- MOCK DATA for documents ---
-  // In a real app, this would be fetched from Firestore for the specific vehicle.
   final List<Map<String, dynamic>> _documents = [
     {
       "type": "Registration Certificate (RC)",
@@ -129,9 +120,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
         child: ElevatedButton.icon(
           icon: const Icon(Icons.delete_forever, color: Colors.white),
           label: const Text('Delete Vehicle', style: TextStyle(color: Colors.white, fontSize: 16)),
-          onPressed: _deleteVehicle, // Yahan naya function call hoga
+          onPressed: _deleteVehicle,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade700, // Delete ke liye red color
+            backgroundColor: Colors.red.shade700,
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -266,10 +257,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      // FIX: Yahan par vehicleId ko pass kiya gaya hai
                       builder: (context) => AddEditDocumentScreen(
                         documentType: doc['type'],
-                        vehicleId: widget.vehicle['id'], // YEH LINE ADD KI GAYI HAI
+                        vehicleId: widget.vehicle['id'],
                       ),
                     ),
                   );

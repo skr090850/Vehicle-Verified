@@ -397,11 +397,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       elevation: 0,
       actions: [
         if (hasVehicles)
-          IconButton(
-            icon: const Icon(Icons.widgets_outlined, color: Colors.white),
-            tooltip: 'Quick Actions',
-            onPressed: () => _showFeaturesBottomSheet(context),
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.widgets_outlined, color: Colors.white),
+          //   tooltip: 'Quick Actions',
+          //   onPressed: () => _showFeaturesBottomSheet(context),
+          // ),
         IconButton(
           icon: const Icon(Icons.notifications_none, color: Colors.white),
           onPressed: () {},
