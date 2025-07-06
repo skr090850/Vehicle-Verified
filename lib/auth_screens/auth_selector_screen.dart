@@ -1,103 +1,215 @@
 import 'package:flutter/material.dart';
 import 'package:vehicle_verified/auth_screens/login_screen.dart';
 import 'package:vehicle_verified/themes/color.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class AuthSelectorScreen extends StatelessWidget {
+class AuthSelectorScreen extends StatefulWidget {
   const AuthSelectorScreen({super.key});
+
+  @override
+  State<AuthSelectorScreen> createState() => _AuthSelectorScreenState();
+}
+
+class _AuthSelectorScreenState extends State<AuthSelectorScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 900),
+      vsync: this,
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          '\nVehicle Verified',
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.backgroundColorFirst,
+              AppColors.backgroundColorOwner.withOpacity(0.5),
+            ],
+          ),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final screenHeight = constraints.maxHeight;
+            final double imageSize = screenHeight * 0.22;
+            final double iconSize = screenHeight * 0.08;
+            final double titleFontSize = screenHeight * 0.035;
+            final double subtitleFontSize = screenHeight * 0.017;
+            final double brandNameFontSize = screenHeight * 0.022;
+            final double verticalGap = screenHeight * 0.03;
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    const Spacer(flex: 2),
+                    // --- START: BRAND NAME ADDED ---
+                    FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Text(
+                        'VEHICLE VERIFIED',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: brandNameFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ),
+                    // --- END: BRAND NAME ADDED ---
+                    const Spacer(flex: 1),
+                    FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: _buildHeader(
+                          imageSize: imageSize,
+                          iconSize: iconSize,
+                          titleFontSize: titleFontSize,
+                          subtitleFontSize: subtitleFontSize,
+                          verticalGap: verticalGap,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: verticalGap * 1.5),
+                    FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: _buildRoleButton(
+                          context: context,
+                          icon: Icons.directions_car,
+                          title: 'Vehicle Owner',
+                          subtitle: 'Manage your vehicle documents.',
+                          color: AppColors.primaryColorOwner,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(userRole: 'owner'),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: _buildRoleButton(
+                          context: context,
+                          icon: Icons.local_police,
+                          title: 'Traffic Official',
+                          subtitle: 'Scan & verify documents.',
+                          color: Colors.red.shade700,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(userRole: 'police'),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const Spacer(flex: 3),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Header section jismein saara original content hai
+  Widget _buildHeader({
+    required double imageSize,
+    required double iconSize,
+    required double titleFontSize,
+    required double subtitleFontSize,
+    required double verticalGap,
+  }) {
+    return Column(
+      children: [
+        Image.asset('assets/image/suv.png', height: imageSize),
+        SizedBox(height: verticalGap * 0.8),
+        Text(
+          "No files, no fines, just peace of mind\nWith VehicleVerified, everything’s aligned",
+          textAlign: TextAlign.center,
+          style: GoogleFonts.robotoSlab(
+            fontSize: subtitleFontSize,
+            fontWeight: FontWeight.w500,
+            // fontStyle: FontStyle.italic,
+            color: Colors.black54,
+          ),
+        ),
+        SizedBox(height: verticalGap),
+        Icon(
+          Icons.verified_user,
+          size: iconSize,
+          color: Colors.green.shade700,
+        ),
+        SizedBox(height: verticalGap * 0.6),
+        Text(
+          'Welcome!',
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 28,
+            fontSize: titleFontSize,
             fontWeight: FontWeight.bold,
-            color: AppColors.primaryColorOwner,
+            color: Color(0xFF333333),
           ),
         ),
-        backgroundColor: AppColors.backgroundColorFirst,
-        centerTitle: true,
-      ),
-      backgroundColor: AppColors.backgroundColorFirst,
-      body: SafeArea(
-        child: Center(
-          // SingleChildScrollView ka istemaal taaki content scroll ho sake
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                // Pehle wala saara content wapas add kar diya gaya hai
-                Image.asset('assets/image/suv.png', height: 200, width: 200),
-                const Text(
-                  "\nTake control of your vehicle's\npaperwork effortlessly.\nNavigate the road ahead with confidence,\nsupported by our app.\n",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Icon(
-                  Icons.verified_user,
-                  size: 80.0,
-                  color: Colors.green.shade700,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Welcome!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF333333),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Please select your role to continue.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                _buildRoleButton(
-                  context: context,
-                  icon: Icons.directions_car,
-                  title: 'Vehicle Owner',
-                  subtitle: 'Manage your vehicle documents.',
-                  color: AppColors.primaryColorOwner,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(userRole: 'owner'),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                _buildRoleButton(
-                  context: context,
-                  icon: Icons.local_police,
-                  title: 'Traffic Official',
-                  subtitle: 'Scan & verify documents.',
-                  color: Colors.red.shade700,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(userRole: 'police'),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+        SizedBox(height: verticalGap * 0.4),
+        Text(
+          'Please select your role to continue.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: subtitleFontSize,
+            color: Colors.grey,
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -116,13 +228,13 @@ class AuthSelectorScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         backgroundColor: color,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        elevation: 5,
+        elevation: 8,
+        shadowColor: color.withOpacity(0.4),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Icon(icon, size: 40),
           const SizedBox(width: 16),
