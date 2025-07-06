@@ -10,11 +10,13 @@ import 'package:vehicle_verified/themes/color.dart';
 class AddEditDocumentScreen extends StatefulWidget {
   final String documentType;
   final String vehicleId;
+  final String? documentId;
 
   const AddEditDocumentScreen({
     super.key,
     required this.documentType,
     required this.vehicleId,
+    this.documentId,
   });
 
   @override
@@ -60,6 +62,8 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
   }
 
   /// File ko upload aur save karne ka function
+  // _uploadAndSaveDocument function ko isse replace karein
+
   Future<void> _uploadAndSaveDocument() async {
     if (_selectedImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,21 +94,35 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
       await storageRef.putFile(_selectedImageFile!);
       final String downloadUrl = await storageRef.getDownloadURL();
 
-      // Step 2: Document ki details ko Firestore mein save karein
-      await FirebaseFirestore.instance
-          .collection('vehicles')
-          .doc(widget.vehicleId)
-          .collection('documents')
-          .add({
+      // Step 2: Document ki details ko Firestore mein save/update karein
+      final documentData = {
         'documentType': widget.documentType,
         'documentURL': downloadUrl,
         'expiryDate': Timestamp.fromDate(_expiryDate!),
         'uploadedAt': Timestamp.now(),
-      });
+      };
+
+      // YEH NAYI LOGIC HAI
+      if (widget.documentId != null) {
+        // Agar documentId hai, to UPDATE karein
+        await FirebaseFirestore.instance
+            .collection('vehicles')
+            .doc(widget.vehicleId)
+            .collection('documents')
+            .doc(widget.documentId)
+            .update(documentData);
+      } else {
+        // Agar documentId nahi hai, to ADD karein
+        await FirebaseFirestore.instance
+            .collection('vehicles')
+            .doc(widget.vehicleId)
+            .collection('documents')
+            .add(documentData);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Document uploaded successfully!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Document saved successfully!'), backgroundColor: Colors.green),
         );
         Navigator.of(context).pop();
       }
@@ -112,7 +130,7 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload document: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Failed to save document: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {

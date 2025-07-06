@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // Naya import
 import 'package:intl/intl.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart';
 import 'package:vehicle_verified/themes/color.dart';
+import 'package:vehicle_verified/owner_screens/dashboard/view_document_image_screen.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> vehicle;
@@ -14,6 +16,7 @@ class VehicleDetailsScreen extends StatefulWidget {
 }
 
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
+  // Vehicle delete karne ka function (pehla jaisa hi)
   Future<void> _deleteVehicle() async {
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
@@ -61,6 +64,61 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     }
   }
 
+  // --- START: NAYA FUNCTION ---
+  /// Sirf ek document ko delete karne ka function
+  Future<void> _deleteDocument(String documentId, String? imageUrl) async {
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Document'),
+          content: const Text('Are you sure you want to delete this document?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete == true) {
+      try {
+        // Step 1: Document ko Firestore se delete karein
+        await FirebaseFirestore.instance
+            .collection('vehicles')
+            .doc(widget.vehicle['id'])
+            .collection('documents')
+            .doc(documentId)
+            .delete();
+
+        // Step 2: Agar image URL hai, to file ko Storage se bhi delete karein
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+          await FirebaseStorage.instance.refFromURL(imageUrl).delete();
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Document deleted.'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete document: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+  // --- END: NAYA FUNCTION ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,20 +136,17 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                   const SizedBox(height: 24),
                   _buildSectionHeader('Vehicle Documents'),
                   const SizedBox(height: 12),
-                  // --- START: FIREBASE DATA FETCH ---
                   _buildDocumentsList(),
-                  // --- END: FIREBASE DATA FETCH ---
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _buildDeleteVehicleButton(), // Delete button
+      bottomNavigationBar: _buildDeleteVehicleButton(),
     );
   }
 
-  /// Documents ki list fetch aur display karne ke liye naya widget
   Widget _buildDocumentsList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -101,20 +156,16 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
           .orderBy('uploadedAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        // Error state
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
-        // Data na hone par
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return _buildMissingDocumentCard();
         }
 
-        // Documents ki list ko build karein
         final documents = snapshot.data!.docs;
         return ListView.builder(
           itemCount: documents.length,
@@ -123,7 +174,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
           itemBuilder: (context, index) {
             final doc = documents[index];
             final docData = doc.data() as Map<String, dynamic>;
-            return _buildDocumentCard(docData);
+            return _buildDocumentCard(docData, doc.id);
           },
         );
       },
@@ -132,7 +183,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
 
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      expandedHeight: 250.0,
+      expandedHeight: 300.0,
       pinned: true,
       backgroundColor: AppColors.primaryColorOwner,
       iconTheme: const IconThemeData(color: Colors.white),
@@ -167,8 +218,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
             ),
             const Divider(height: 24),
             _buildInfoRow('Registration No.:', widget.vehicle['registrationNumber'] ?? 'N/A'),
-            _buildInfoRow('Company name:', widget.vehicle['make']??'N/A'),
-            _buildInfoRow('Model No.:', widget.vehicle['model']??'N/A'),
+            _buildInfoRow('Company Name:', widget.vehicle['make'] ?? 'N/A'),
+            _buildInfoRow('Model No.:', widget.vehicle['model'] ?? 'N/A'),
             _buildInfoRow('Engine No.:', widget.vehicle['engineNumber'] ?? 'N/A'),
             _buildInfoRow('Chassis No.:', widget.vehicle['chassisNumber'] ?? 'N/A'),
           ],
@@ -197,11 +248,12 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     );
   }
 
-  /// Document card jo ab real data lega
-  Widget _buildDocumentCard(Map<String, dynamic> docData) {
+  /// Document card jismein ab delete icon bhi hai
+  Widget _buildDocumentCard(Map<String, dynamic> docData, String documentId) {
     final String docType = docData['documentType'] ?? 'Unknown Document';
     final Timestamp? expiryTimestamp = docData['expiryDate'];
     final DateTime? expiryDate = expiryTimestamp?.toDate();
+    final String? imageUrl = docData['documentURL'];
 
     String status = 'valid';
     String expiryText = 'Lifetime';
@@ -229,7 +281,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8, right: 0),
         child: Row(
           children: [
             Icon(statusIcon, color: statusColor, size: 32),
@@ -246,30 +298,53 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                 ],
               ),
             ),
+            // View/Renew/Update button
             TextButton(
               onPressed: () {
-                if (status == 'expired') {
+                if (status == 'expiring' || status == 'expired') {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => AddEditDocumentScreen(
                         documentType: docType,
                         vehicleId: widget.vehicle['id'],
+                        documentId: documentId,
                       ),
                     ),
                   );
+                } else if (status == 'valid' && imageUrl != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ViewDocumentImageScreen(
+                        imageUrl: imageUrl,
+                        docType: docType,
+                      ),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Document image not available.')),
+                  );
                 }
-                // TODO: Add logic for 'View' and 'Renew'
               },
               child: Text(actionText),
             ),
+            // --- START: NAYA DELETE ICON BUTTON ---
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: Colors.grey.shade600),
+              tooltip: 'Delete Document',
+              onPressed: () {
+                _deleteDocument(documentId, imageUrl);
+              },
+            ),
+            // --- END: NAYA DELETE ICON BUTTON ---
           ],
         ),
       ),
     );
   }
 
-  /// Jab koi document na ho to yeh card dikhega
   Widget _buildMissingDocumentCard() {
     return Card(
       elevation: 2,
@@ -300,7 +375,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => AddEditDocumentScreen(
-                      documentType: 'Registration Certificate (RC)', // Default type
+                      documentType: 'Registration Certificate (RC)',
                       vehicleId: widget.vehicle['id'],
                     ),
                   ),
@@ -313,7 +388,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     );
   }
 
-  /// Delete button
   Widget _buildDeleteVehicleButton() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
