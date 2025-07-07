@@ -1,5 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:vehicle_verified/themes/color.dart';
+
+// A data model to hold service history information.
+class ServiceHistoryItem {
+  final String docId;
+  final String vehicleId;
+  final String title;
+  final String date;
+  final DateTime? serviceDateTime;
+  final String cost;
+  final String workshop;
+  final String vehicleDisplay;
+  final String status;
+  final List<String> servicesPerformed;
+
+  ServiceHistoryItem({
+    required this.docId,
+    required this.vehicleId,
+    required this.title,
+    required this.date,
+    this.serviceDateTime,
+    required this.cost,
+    required this.workshop,
+    required this.vehicleDisplay,
+    required this.status,
+    required this.servicesPerformed,
+  });
+}
 
 class ServiceHistoryScreen extends StatefulWidget {
   const ServiceHistoryScreen({super.key});
@@ -9,61 +39,132 @@ class ServiceHistoryScreen extends StatefulWidget {
 }
 
 class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
-  // --- MOCK DATA ---
-  // In a real app, this data would be fetched from Firestore.
-  final List<String> _vehicles = [
-    'All Vehicles',
-    'Honda Activa - DL01AB1234',
-    'Maruti Swift - BR01CD5678'
-  ];
-  String? _selectedVehicle;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final List<Map<String, String>> _serviceHistory = [
-    {
-      "title": "General Maintenance",
-      "date": "15 Jun 2024",
-      "cost": "₹2,500",
-      "workshop": "Reliable Auto Works",
-      "vehicle": "Honda Activa - DL01AB1234",
-    },
-    {
-      "title": "AC Gas Refill",
-      "date": "02 Apr 2024",
-      "cost": "₹1,200",
-      "workshop": "Cool Car Care",
-      "vehicle": "Maruti Swift - BR01CD5678",
-    },
-    {
-      "title": "Insurance Renewed",
-      "date": "20 Jan 2024",
-      "cost": "₹8,500",
-      "workshop": "Policy Online",
-      "vehicle": "Maruti Swift - BR01CD5678",
-    },
-    {
-      "title": "Oil Change",
-      "date": "18 Dec 2023",
-      "cost": "₹800",
-      "workshop": "Speedy Service Center",
-      "vehicle": "Honda Activa - DL01AB1234",
-    }
-  ];
+  late Future<List<ServiceHistoryItem>> _allServiceHistoryFuture;
+  List<String> _vehiclesForFilter = ['All Vehicles'];
+  String _selectedVehicleFilter = 'All Vehicles';
 
   @override
   void initState() {
     super.initState();
-    _selectedVehicle = _vehicles.first;
+    _allServiceHistoryFuture = _fetchAllServiceHistories();
+  }
+
+  Future<List<ServiceHistoryItem>> _fetchAllServiceHistories() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    List<ServiceHistoryItem> allServices = [];
+    List<String> vehicleTypes = ['All Vehicles'];
+
+    final vehiclesSnapshot = await _firestore
+        .collection('vehicles')
+        .where('ownerID', isEqualTo: user.uid)
+        .get();
+
+    for (var vehicleDoc in vehiclesSnapshot.docs) {
+      final vehicleData = vehicleDoc.data();
+      final vehicleDisplay =
+          '${vehicleData['make'] ?? ''} ${vehicleData['model'] ?? ''} - ${vehicleData['registrationNumber'] ?? 'N/A'}';
+
+      vehicleTypes.add(vehicleDisplay);
+
+      final historySnapshot = await vehicleDoc.reference
+          .collection('serviceHistory')
+          .orderBy('serviceDate', descending: true)
+          .get();
+
+      for (var historyDoc in historySnapshot.docs) {
+        final historyData = historyDoc.data();
+        final serviceDate = (historyData['serviceDate'] as Timestamp?)?.toDate();
+        final costValue = historyData['cost'];
+        String costString = 'Pending';
+        if (costValue is num) {
+          costString = '₹${costValue.toStringAsFixed(2)}';
+        }
+
+        allServices.add(
+          ServiceHistoryItem(
+            docId: historyDoc.id,
+            vehicleId: vehicleDoc.id,
+            title: historyData['serviceType'] ?? 'Unknown Service',
+            date: serviceDate != null ? DateFormat.yMMMd().format(serviceDate) : 'N/A',
+            serviceDateTime: serviceDate,
+            cost: costString,
+            workshop: historyData['workshop'] ?? 'Pending',
+            vehicleDisplay: vehicleDisplay,
+            status: historyData['status'] ?? 'Unknown',
+            servicesPerformed: List<String>.from(historyData['servicesPerformed'] ?? []),
+          ),
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _vehiclesForFilter = vehicleTypes;
+      });
+    }
+
+    return allServices;
+  }
+
+  Future<void> _updateServiceStatus(ServiceHistoryItem item, String newStatus) async {
+    try {
+      await _firestore
+          .collection('vehicles')
+          .doc(item.vehicleId)
+          .collection('serviceHistory')
+          .doc(item.docId)
+          .update({'status': newStatus});
+
+      setState(() {
+        _allServiceHistoryFuture = _fetchAllServiceHistories();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Service status updated!'), backgroundColor: Colors.green),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update status: $e')),
+      );
+    }
+  }
+
+  void _showCompletionDialog(ServiceHistoryItem item) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm Service Completion'),
+          content: const Text('Please confirm that the service has been completed. You can also rate your experience.'),
+          actions: [
+            TextButton(
+              child: const Text('Bad Service'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _updateServiceStatus(item, 'Completed (Bad)');
+              },
+            ),
+            TextButton(
+              child: const Text('Good Service'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _updateServiceStatus(item, 'Completed (Good)');
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filter the history based on the selected vehicle
-    final filteredHistory = _selectedVehicle == 'All Vehicles'
-        ? _serviceHistory
-        : _serviceHistory
-        .where((item) => item['vehicle'] == _selectedVehicle)
-        .toList();
-
     return Scaffold(
       backgroundColor: AppColors.backgroundColorOwner,
       appBar: AppBar(
@@ -75,23 +176,46 @@ class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
         children: [
           _buildVehicleSelector(),
           Expanded(
-            child: filteredHistory.isEmpty
-                ? const Center(
-              child: Text(
-                'No service history for this vehicle.',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            )
-                : ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: filteredHistory.length,
-              itemBuilder: (context, index) {
-                final item = filteredHistory[index];
-                return _buildHistoryCard(
-                  title: item['title']!,
-                  date: item['date']!,
-                  cost: item['cost']!,
-                  workshop: item['workshop']!,
+            child: FutureBuilder<List<ServiceHistoryItem>>(
+              future: _allServiceHistoryFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No service history found.',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  );
+                }
+
+                final filteredHistory = _selectedVehicleFilter == 'All Vehicles'
+                    ? snapshot.data!
+                    : snapshot.data!
+                    .where((item) => item.vehicleDisplay == _selectedVehicleFilter)
+                    .toList();
+
+                if (filteredHistory.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No service history for this vehicle.',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: filteredHistory.length,
+                  itemBuilder: (context, index) {
+                    final item = filteredHistory[index];
+                    return _buildHistoryCard(item);
+                  },
                 );
               },
             ),
@@ -101,7 +225,6 @@ class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
     );
   }
 
-  /// Builds the dropdown menu to filter service history by vehicle.
   Widget _buildVehicleSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -119,15 +242,17 @@ class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedVehicle,
+          value: _selectedVehicleFilter,
           isExpanded: true,
           icon: Icon(Icons.directions_car, color: AppColors.primaryColorOwner),
           onChanged: (String? newValue) {
-            setState(() {
-              _selectedVehicle = newValue;
-            });
+            if (newValue != null) {
+              setState(() {
+                _selectedVehicleFilter = newValue;
+              });
+            }
           },
-          items: _vehicles.map<DropdownMenuItem<String>>((String value) {
+          items: _vehiclesForFilter.map<DropdownMenuItem<String>>((String value) {
             return DropdownMenuItem<String>(
               value: value,
               child: Text(
@@ -142,13 +267,21 @@ class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
     );
   }
 
-  /// Builds a card to display a single service history record.
-  Widget _buildHistoryCard({
-    required String title,
-    required String date,
-    required String cost,
-    required String workshop,
-  }) {
+  Widget _buildHistoryCard(ServiceHistoryItem item) {
+    Color statusColor;
+    bool showCompletionButton = false;
+
+    if (item.status == 'Booked' && item.serviceDateTime != null && item.serviceDateTime!.isBefore(DateTime.now())) {
+      statusColor = Colors.orange;
+      showCompletionButton = true;
+    } else if (item.status.contains('Completed')) {
+      statusColor = Colors.green;
+    } else if (item.status == 'Booked') {
+      statusColor = Colors.blue;
+    } else {
+      statusColor = Colors.grey;
+    }
+
     return Card(
       elevation: 3,
       shadowColor: Colors.black.withOpacity(0.1),
@@ -159,37 +292,78 @@ class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_selectedVehicleFilter == 'All Vehicles') ...[
+              Row(
+                children: [
+                  Icon(Icons.directions_car, size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.vehicleDisplay,
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Text(
-                  cost,
-                  style: const TextStyle(
+                  item.cost,
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.green,
+                    color: statusColor,
                   ),
                 ),
               ],
             ),
             const Divider(height: 20),
-            _buildDetailRow(Icons.store, 'Workshop', workshop),
+            if (item.servicesPerformed.isNotEmpty) ...[
+              Text('Services Performed:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+              const SizedBox(height: 4),
+              ...item.servicesPerformed.map((service) => Padding(
+                padding: const EdgeInsets.only(left: 8.0, top: 2.0),
+                child: Text('• $service'),
+              )).toList(),
+              const Divider(height: 20),
+            ],
+            _buildDetailRow(Icons.store, 'Workshop', item.workshop),
             const SizedBox(height: 8),
-            _buildDetailRow(Icons.calendar_today, 'Date', date),
+            _buildDetailRow(Icons.calendar_today, 'Date', item.date),
+            const SizedBox(height: 8),
+            _buildDetailRow(Icons.info_outline, 'Status', item.status),
+            if (showCompletionButton) ...[
+              const SizedBox(height: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: () => _showCompletionDialog(item),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  child: const Text('Confirm Completion', style: TextStyle(color: Colors.white)),
+                ),
+              )
+            ]
           ],
         ),
       ),
     );
   }
 
-  /// Helper widget to build a detail row with an icon and text.
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       children: [

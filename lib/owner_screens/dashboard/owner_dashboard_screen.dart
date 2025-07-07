@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/add_vehicle_screen.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/generate_qr_code_screen.dart';
 import 'package:vehicle_verified/owner_screens/services/service_history_screen.dart';
@@ -18,18 +20,34 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
-  // Firebase instances
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<User?>? _authSubscription;
 
-  // State variables
   String _userName = "User";
   List<Map<String, dynamic>> _vehicles = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchUserData();
+    _authSubscription = _auth.authStateChanges().listen((User? user) {
+      if (user == null) {
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const AuthSelectorScreen()),
+                (Route<dynamic> route) => false,
+          );
+        }
+      } else {
+        _fetchUserData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchUserData() async {
@@ -45,13 +63,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
-  // --- START: UPDATED DOCUMENT UPLOAD LOGIC ---
-  /// Handles the logic for uploading/replacing a document.
-  Future<void> _handleDocumentUpload(String selectedDocType, Map<String, dynamic> vehicle) async {
-    // Close the initial bottom sheet
+  Future<void> _handleDocumentUpload(
+      String selectedDocType, Map<String, dynamic> vehicle) async {
+    if (!mounted) return;
     Navigator.of(context).pop();
 
-    // Show a loading indicator while checking Firestore
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -59,34 +75,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
 
     try {
-      // Check if a document of the same type already exists
       final querySnapshot = await _firestore
           .collection('vehicles')
           .doc(vehicle['id'])
           .collection('documents')
           .where('documentType', isEqualTo: selectedDocType)
-          .limit(1) // We only need to know if at least one exists
+          .limit(1)
           .get();
 
-      // Close the loading indicator
-      if(mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop();
 
       if (querySnapshot.docs.isNotEmpty) {
-        // Document exists, so ask the user for confirmation to replace
         final existingDocId = querySnapshot.docs.first.id;
         final bool? shouldReplace = await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
               title: const Text('Replace Document?'),
-              content: Text("A document for '$selectedDocType' already exists. Do you want to replace it?"),
+              content: Text(
+                  "A document for '$selectedDocType' already exists. Do you want to replace it?"),
               actions: <Widget>[
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false), // User chose not to replace
+                  onPressed: () => Navigator.of(context).pop(false),
                   child: const Text('Cancel'),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(true), // User chose to replace
+                  onPressed: () => Navigator.of(context).pop(true),
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   child: const Text('Replace'),
                 ),
@@ -96,36 +110,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         );
 
         if (shouldReplace == true && mounted) {
-          // User wants to replace, navigate to the edit screen with the existing documentId
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => AddEditDocumentScreen(
                 documentType: selectedDocType,
                 vehicleId: vehicle['id'],
-                documentId: existingDocId, // Pass the ID to enable update mode
+                documentId: existingDocId,
               ),
             ),
           );
         }
       } else {
-        // Document doesn't exist, navigate to add a new one
-        if(mounted) {
+        if (mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => AddEditDocumentScreen(
                 documentType: selectedDocType,
                 vehicleId: vehicle['id'],
-                // No documentId is passed, so it will be in "add new" mode
               ),
             ),
           );
         }
       }
     } catch (e) {
-      // In case of an error, close the loading indicator and show a message
-      if(mounted) {
+      if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error checking document: $e")),
@@ -134,7 +144,46 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
-  void _showUploadDocumentSheet(BuildContext context, Map<String, dynamic> vehicle) {
+  // --- START: CORRECTED NOTIFICATION LOGIC ---
+  Stream<int> _getPendingConfirmationsCountStream() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value(0);
+
+    return _firestore
+        .collectionGroup('serviceHistory')
+        .where('status', isEqualTo: 'Booked')
+        .snapshots()
+        .asyncMap((snapshot) async {
+      int count = 0;
+      for (var doc in snapshot.docs) {
+        try {
+          final vehicleRef = doc.reference.parent.parent;
+          if (vehicleRef != null) {
+            final vehicleDoc = await vehicleRef.get();
+            if (vehicleDoc.exists && vehicleDoc.data()?['ownerID'] == user.uid) {
+              final serviceDate = (doc.data()['serviceDate'] as Timestamp?)?.toDate();
+              if (serviceDate != null && serviceDate.isBefore(DateTime.now())) {
+                count++;
+              }
+            }
+          }
+        } catch (e) {
+          // Handle potential errors, e.g., permission issues
+          print("Error checking notification: $e");
+        }
+      }
+      return count;
+    });
+  }
+
+  void _showNotificationsDialog() {
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const ServiceHistoryScreen()));
+  }
+  // --- END: CORRECTED NOTIFICATION LOGIC ---
+
+  void _showUploadDocumentSheet(
+      BuildContext context, Map<String, dynamic> vehicle) {
     final List<String> documentTypes = [
       'Registration Certificate (RC)',
       'Insurance Policy',
@@ -168,7 +217,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     title: Text(documentTypes[index]),
                     leading: const Icon(Icons.article_outlined),
                     onTap: () {
-                      // The tap now calls the new handler function
                       _handleDocumentUpload(documentTypes[index], vehicle);
                     },
                   );
@@ -181,9 +229,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       },
     );
   }
-  // --- END: UPDATED DOCUMENT UPLOAD LOGIC ---
 
-  /// Yeh widget vehicle ke documents ko live sunega aur status calculate karega.
   Widget _buildVehicleStatusWidget(Map<String, dynamic> vehicle) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -200,7 +246,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           );
         }
 
-        // --- Status Calculation Logic ---
         final documents = docSnapshot.data?.docs ?? [];
         MaterialColor statusColor = Colors.grey;
         String statusText = 'Documents Pending';
@@ -221,9 +266,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               if (expiryDate.isBefore(DateTime.now())) {
                 allVerified = false;
                 expiredDoc = data['documentType'] ?? 'Document';
-                break; // Expired document ko sabse zyada priority deni hai
+                break;
               }
-              if (expiryDate.isBefore(DateTime.now().add(const Duration(days: 30)))) {
+              if (expiryDate
+                  .isBefore(DateTime.now().add(const Duration(days: 30)))) {
                 allVerified = false;
                 expiringSoonDoc = data['documentType'] ?? 'Document';
               }
@@ -237,8 +283,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             statusText = '$expiringSoonDoc Expiring';
             statusColor = Colors.orange;
           } else if (allVerified) {
-            var docTypes = documents.map((d) => (d.data() as Map)['documentType']).toSet();
-            if (docTypes.contains('Insurance Policy') && docTypes.contains('Pollution Under Control (PUC)')) {
+            var docTypes =
+            documents.map((d) => (d.data() as Map)['documentType']).toSet();
+            if (docTypes.contains('Insurance Policy') &&
+                docTypes.contains('Pollution Under Control (PUC)')) {
               statusText = 'All Documents Verified';
               statusColor = Colors.green;
             } else {
@@ -250,7 +298,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             statusColor = Colors.blue;
           }
         }
-        // --- End Status Calculation Logic ---
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -274,12 +321,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Widget build(BuildContext context) {
     User? user = _auth.currentUser;
     if (user == null) {
-      return const Scaffold(body: Center(child: Text("User not logged in.")));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return StreamBuilder<QuerySnapshot>(
-      stream:
-      _firestore.collection('vehicles').where('ownerID', isEqualTo: user.uid).snapshots(),
+      stream: _firestore
+          .collection('vehicles')
+          .where('ownerID', isEqualTo: user.uid)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
@@ -379,8 +428,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => const AddVehicleScreen()));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddVehicleScreen()));
             },
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text('Add Your First Vehicle',
@@ -465,9 +516,57 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       elevation: 0,
       actions: [
         if (hasVehicles)
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () {},
+          StreamBuilder<int>(
+            stream: _getPendingConfirmationsCountStream(),
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+              final hasNotifications = count > 0;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none,
+                        color: Colors.white),
+                    onPressed: () {
+                      if (hasNotifications) {
+                        _showNotificationsDialog();
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text("No pending notifications."),
+                              duration: Duration(seconds: 2)),
+                        );
+                      }
+                    },
+                  ),
+                  if (hasNotifications)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         IconButton(
           icon: const Icon(Icons.logout, color: Colors.white),
@@ -501,22 +600,25 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _userName,
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${_vehicles.length} vehicles registered',
-                style: TextStyle(color: Colors.white.withOpacity(0.8)),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_vehicles.length} vehicle${_vehicles.length == 1 ? '' : 's'} registered',
+                  style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                ),
+              ],
+            ),
           ),
           const CircleAvatar(
             radius: 30,
@@ -527,12 +629,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  // --- START: UPDATED VEHICLE TAB CONTENT ---
   Widget _buildVehicleTabContent(Map<String, dynamic> vehicle) {
-    List<Map<String, String>> alerts =
-    List<Map<String, String>>.from(vehicle['alerts'] ?? []);
-    List<Map<String, String>> services =
-    List<Map<String, String>>.from(vehicle['services'] ?? []);
-
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 120.0),
       child: Column(
@@ -553,7 +651,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             child: Row(
               children: [
                 Image.asset(vehicle['image'] ?? 'assets/image/car_sedan.png',
-                    height: 80),
+                    height: 80,
+                    errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.directions_car, size: 80)),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -595,15 +695,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => GenerateQrCodeScreen(
-                            vehicle: vehicle)));
+                        builder: (context) =>
+                            GenerateQrCodeScreen(vehicle: vehicle)));
               }),
               _buildActionChip('Documents', Icons.folder_copy_outlined, () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    // Yahan 'vehicle' parameter ko pass karein
-                    builder: (context) => ViewAllDocumentsScreen(vehicle: vehicle),
+                    builder: (context) =>
+                        ViewAllDocumentsScreen(vehicle: vehicle),
                   ),
                 );
               }),
@@ -633,21 +733,104 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ],
           ),
           const SizedBox(height: 32),
-          if (alerts.isNotEmpty) ...[
-            _buildSectionHeader('Urgent Alerts'),
-            const SizedBox(height: 12),
-            ...alerts.map((alert) => _buildAlertCard(alert)).toList(),
-            const SizedBox(height: 32),
-          ],
-          if (services.isNotEmpty) ...[
-            _buildSectionHeader('Recent Services'),
-            const SizedBox(height: 12),
-            ...services.map((service) => _buildServiceHistoryCard(service)).toList(),
-          ]
+          // Dynamic sections added here
+          _buildUrgentAlertsSection(vehicle['id']),
+          const SizedBox(height: 32),
+          _buildRecentServicesSection(vehicle['id']),
         ],
       ),
     );
   }
+  // --- END: UPDATED VEHICLE TAB CONTENT ---
+
+  // --- START: NEW DYNAMIC SECTIONS ---
+  Widget _buildUrgentAlertsSection(String vehicleId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('vehicles')
+          .doc(vehicleId)
+          .collection('documents')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+
+        final now = DateTime.now();
+        final alerts = <Map<String, String>>[];
+
+        for (var doc in snapshot.data!.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final expiryTimestamp = data['expiryDate'] as Timestamp?;
+          if (expiryTimestamp != null) {
+            final expiryDate = expiryTimestamp.toDate();
+            final docType = data['documentType'] ?? 'Document';
+
+            if (expiryDate.isBefore(now)) {
+              alerts.add({
+                'type': '$docType Expired',
+                'expiry': 'Expired on ${DateFormat.yMMMd().format(expiryDate)}',
+                'level': 'expired',
+              });
+            } else if (expiryDate
+                .isBefore(now.add(const Duration(days: 30)))) {
+              alerts.add({
+                'type': '$docType Expiring Soon',
+                'expiry':
+                'Expires on ${DateFormat.yMMMd().format(expiryDate)}',
+                'level': 'expiring',
+              });
+            }
+          }
+        }
+
+        if (alerts.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader('Urgent Alerts'),
+            const SizedBox(height: 12),
+            ...alerts.map((alert) => _buildAlertCard(alert)).toList(),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentServicesSection(String vehicleId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('vehicles')
+          .doc(vehicleId)
+          .collection('serviceHistory')
+          .orderBy('serviceDate', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final services = snapshot.data!.docs;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader('Recent Services'),
+            const SizedBox(height: 12),
+            ...services.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final serviceDate = (data['serviceDate'] as Timestamp).toDate();
+              return _buildServiceHistoryCard({
+                'name': data['serviceType'] ?? 'Service',
+                'date': DateFormat.yMMMd().format(serviceDate),
+              });
+            }).toList(),
+          ],
+        );
+      },
+    );
+  }
+  // --- END: NEW DYNAMIC SECTIONS ---
 
   Widget _buildActionChip(String label, IconData icon, VoidCallback onTap) {
     return GestureDetector(
@@ -687,19 +870,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildAlertCard(Map<String, String> alert) {
+    final bool isExpired = alert['level'] == 'expired';
     return Card(
       elevation: 2,
-      shadowColor: Colors.orange.withOpacity(0.2),
+      shadowColor: (isExpired ? Colors.red : Colors.orange).withOpacity(0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+        leading: Icon(Icons.warning_amber_rounded,
+            color: isExpired ? Colors.red : Colors.orange),
         title: Text(alert['type']!,
             style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle:
         Text(alert['expiry']!, style: TextStyle(color: Colors.grey.shade600)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () {},
+        onTap: () {
+          // Navigate to documents screen or specific document
+        },
       ),
     );
   }
@@ -718,7 +905,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         subtitle:
         Text(service['date']!, style: TextStyle(color: Colors.grey.shade600)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () {},
+        onTap: () {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const ServiceHistoryScreen()));
+        },
       ),
     );
   }

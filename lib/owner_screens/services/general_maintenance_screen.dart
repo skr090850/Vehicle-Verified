@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vehicle_verified/themes/color.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// Data model for a single service item
+class ServiceItem {
+  final String name;
+  final Map<String, double> costs; // Costs for different vehicle categories
+
+  ServiceItem({required this.name, required this.costs});
+}
 
 class GeneralMaintenanceScreen extends StatefulWidget {
   const GeneralMaintenanceScreen({super.key});
@@ -11,16 +21,13 @@ class GeneralMaintenanceScreen extends StatefulWidget {
 }
 
 class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
-  // --- MOCK DATA ---
-  final List<String> _vehicles = [
-    'Honda Activa - DL01AB1234',
-    'Maruti Swift - BR01CD5678'
-  ];
-  String? _selectedVehicle;
-  DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
-  final _notesController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  late Future<List<Map<String, dynamic>>> _vehiclesFuture;
+  String? _selectedVehicleId;
+  Map<String, dynamic>? _selectedVehicleData;
+  double _totalCost = 0.0;
   final List<String> _includedServices = [
     'Engine Oil Replacement',
     'Oil Filter Replacement',
@@ -32,43 +39,166 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
     'Chain Lubrication & Adjustment'
   ];
 
+  // --- START: Service List with Individual Costs ---
+  final List<ServiceItem> _availableServices = [
+    ServiceItem(name: 'Engine Oil Replacement', costs: {'2-Wheeler': 350.00, '4-Wheeler': 800.00}),
+    ServiceItem(name: 'Oil Filter Replacement', costs: {'2-Wheeler': 150.00, '4-Wheeler': 450.00}),
+    ServiceItem(name: 'Air Filter Cleaning', costs: {'2-Wheeler': 50.00, '4-Wheeler': 150.00}),
+    ServiceItem(name: 'Air Filter Replacement', costs: {'2-Wheeler': 250.00, '4-Wheeler': 600.00}),
+    ServiceItem(name: 'Coolant Top-up', costs: {'2-Wheeler': 100.00, '4-Wheeler': 250.00}),
+    ServiceItem(name: 'Brake Fluid Check & Top-up', costs: {'2-Wheeler': 80.00, '4-Wheeler': 200.00}),
+    ServiceItem(name: 'Battery Checkup', costs: {'2-Wheeler': 100.00, '4-Wheeler': 200.00}),
+    ServiceItem(name: 'Chain Lubrication & Adjustment', costs: {'2-Wheeler': 120.00, '4-Wheeler': 0}), // Not applicable for cars
+  ];
+
+  final Set<String> _selectedServices = {}; // To track selected service names
+  // --- END: Service List ---
+
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
+  final _notesController = TextEditingController();
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
-    _selectedVehicle = _vehicles.first;
+    _vehiclesFuture = _fetchUserVehicles();
   }
 
-  @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
+  Future<List<Map<String, dynamic>>> _fetchUserVehicles() async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    final snapshot = await _firestore
+        .collection('vehicles')
+        .where('ownerID', isEqualTo: user.uid)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      // --- FIX: Explicitly cast the data to a Map ---
+      final data = doc.data() as Map<String, dynamic>;
+      final displayString =
+          '${data['make'] ?? ''} ${data['model'] ?? ''} - ${data['registrationNumber'] ?? 'N/A'}';
+
+      // Determine category for costing
+      String category = '4-Wheeler';
+      if (['Scooty', 'Motorcycle'].contains(data['vehicleType'])) {
+        category = '2-Wheeler';
+      }
+
+      return {
+        'id': doc.id,
+        'display': displayString,
+        'category': category, // Simplified category for pricing
+      };
+    }).toList();
   }
 
+  void _calculateTotalCost() {
+    double total = 0.0;
+    if (_selectedVehicleData == null) {
+      setState(() { _totalCost = 0.0; });
+      return;
+    }
+
+    final vehicleCategory = _selectedVehicleData!['category'];
+
+    for (var serviceName in _selectedServices) {
+      final service = _availableServices.firstWhere((s) => s.name == serviceName);
+      total += service.costs[vehicleCategory] ?? 0;
+    }
+
+    setState(() {
+      _totalCost = total;
+    });
+  }
+
+  Future<void> _bookAppointment() async {
+    if (_selectedVehicleId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a vehicle.')));
+      return;
+    }
+    if (_selectedServices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select at least one service.')));
+      return;
+    }
+    if (_selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a date and time.')));
+      return;
+    }
+
+    setState(() { _isLoading = true; });
+
+    try {
+      final appointmentDateTime = DateTime(
+        _selectedDate!.year, _selectedDate!.month, _selectedDate!.day,
+        _selectedTime!.hour, _selectedTime!.minute,
+      );
+
+      await _firestore
+          .collection('vehicles')
+          .doc(_selectedVehicleId)
+          .collection('serviceHistory')
+          .add({
+        'serviceType': 'Custom Maintenance',
+        'servicesPerformed': _selectedServices.toList(), // Save the list of selected services
+        'serviceDate': Timestamp.fromDate(appointmentDateTime),
+        'notes': _notesController.text.trim(),
+        'status': 'Booked',
+        'cost': _totalCost,
+        'workshop': 'Verified Auto Center',
+        'createdAt': Timestamp.now(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Appointment booked successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to book appointment: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
+    }
+  }
+
+  // --- START: Robust _pickDate and _pickTime functions ---
   Future<void> _pickDate() async {
-    DateTime? date = await showDatePicker(
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 30)),
     );
-    if (date != null) {
+    if (pickedDate != null && mounted) {
       setState(() {
-        _selectedDate = date;
+        _selectedDate = pickedDate;
       });
     }
   }
 
   Future<void> _pickTime() async {
-    TimeOfDay? time = await showTimePicker(
+    final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
     );
-    if (time != null) {
+    if (pickedTime != null && mounted) {
       setState(() {
-        _selectedTime = time;
+        _selectedTime = pickedTime;
       });
     }
   }
+  // --- END: Robust functions ---
 
   @override
   Widget build(BuildContext context) {
@@ -79,31 +209,90 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
         backgroundColor: AppColors.primaryColorOwner,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            _buildSection(
-              title: 'Package Includes',
-              content: _buildInclusionsList(),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _vehiclesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text("Error fetching vehicles: ${snapshot.error}"));
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No vehicles found.'));
+          }
+
+          final vehicles = snapshot.data!;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 24),
+                _buildSection(
+                  title: 'Package Includes',
+                  content: _buildInclusionsList(),
+                ),
+                const SizedBox(height: 24),
+                _buildSection(
+                  title: 'Schedule Your Appointment',
+                  content: _buildSchedulingForm(vehicles),
+                ),
+                const SizedBox(height: 24),
+                if (_selectedVehicleId != null)
+                  _buildSection(
+                    title: 'Select Services',
+                    content: _buildServicesList(),
+                  ),
+                const SizedBox(height: 24),
+                if (_totalCost > 0)
+                  _buildSection(
+                    title: 'Total Cost',
+                    content: _buildCostDisplayCard(),
+                  ),
+                const SizedBox(height: 24),
+                _buildSection(
+                  title: 'Additional Notes',
+                  content: _buildNotesField(),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            _buildSection(
-              title: 'Schedule Your Appointment',
-              content: _buildSchedulingForm(),
-            ),
-            const SizedBox(height: 24),
-            _buildSection(
-              title: 'Additional Notes',
-              content: _buildNotesField(),
-            ),
-          ],
-        ),
+          );
+        },
       ),
       bottomNavigationBar: _buildBookingButton(),
+    );
+  }
+
+  Widget _buildServicesList() {
+    final vehicleCategory = _selectedVehicleData?['category'] ?? '4-Wheeler';
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: _availableServices.map((service) {
+          final cost = service.costs[vehicleCategory] ?? 0;
+          if (cost == 0) return const SizedBox.shrink(); // Hide service if not applicable
+
+          return CheckboxListTile(
+            title: Text(service.name),
+            subtitle: Text('₹${cost.toStringAsFixed(2)}'),
+            value: _selectedServices.contains(service.name),
+            onChanged: (bool? value) {
+              setState(() {
+                if (value == true) {
+                  _selectedServices.add(service.name);
+                } else {
+                  _selectedServices.remove(service.name);
+                }
+                _calculateTotalCost();
+              });
+            },
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -133,7 +322,7 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Keep your vehicle in top condition with our expert service.',
+                  'Customize your service package below.',
                   style: TextStyle(color: Colors.black54),
                 )
               ],
@@ -158,6 +347,30 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
     );
   }
 
+  Widget _buildCostDisplayCard() {
+    return Card(
+      elevation: 2,
+      color: AppColors.primaryColorOwner.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Total Amount', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+            Text(
+              '₹${_totalCost.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryColorOwner,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   Widget _buildInclusionsList() {
     return Card(
       elevation: 2,
@@ -183,7 +396,7 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
     );
   }
 
-  Widget _buildSchedulingForm() {
+  Widget _buildSchedulingForm(List<Map<String, dynamic>> vehicles) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -192,18 +405,25 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
         child: Column(
           children: [
             DropdownButtonFormField<String>(
-              value: _selectedVehicle,
+              value: _selectedVehicleId,
+              hint: const Text('Select your vehicle'),
               decoration: const InputDecoration(
                 labelText: 'Select Vehicle',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.directions_car),
               ),
-              items: _vehicles
-                  .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+              items: vehicles
+                  .map((vehicle) => DropdownMenuItem(
+                value: vehicle['id'] as String,
+                child: Text(vehicle['display'] as String),
+              ))
                   .toList(),
               onChanged: (value) {
                 setState(() {
-                  _selectedVehicle = value;
+                  _selectedVehicleId = value;
+                  _selectedVehicleData = vehicles.firstWhere((v) => v['id'] == value);
+                  _selectedServices.clear(); // Reset selected services
+                  _calculateTotalCost(); // Recalculate cost (will be 0)
                 });
               },
             ),
@@ -261,20 +481,29 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
   Widget _buildBookingButton() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: ElevatedButton.icon(
-        icon: const Icon(Icons.event_available, color: Colors.white),
-        label: const Text('Book Appointment', style: TextStyle(color: Colors.white, fontSize: 16)),
-        onPressed: () {
-          // TODO: Implement booking logic
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Appointment Booked!')),
-          );
-          Navigator.of(context).pop();
-        },
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _bookAppointment,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryColorOwner,
           minimumSize: const Size(double.infinity, 50),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2,
+          ),
+        )
+            : const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.event_available, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Book Appointment', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
         ),
       ),
     );
