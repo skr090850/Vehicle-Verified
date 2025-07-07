@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vehicle_verified/police_screens/scanned_result_screen.dart';
 
 class PoliceScannerScreen extends StatefulWidget {
@@ -12,17 +13,74 @@ class PoliceScannerScreen extends StatefulWidget {
 class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
   bool _isFlashOn = false;
+  bool _isProcessing = false; // To prevent multiple detections
 
-  void _onDetect(BarcodeCapture capture) {
+  /// Handles the detected barcode, verifies it with Firestore, and navigates.
+  Future<void> _onDetect(BarcodeCapture capture) async {
+    if (_isProcessing) return; // If already processing a code, do nothing.
+
+    setState(() {
+      _isProcessing = true;
+    });
+
     final String? vehicleId = capture.barcodes.first.rawValue;
-    if (vehicleId != null) {
-      _scannerController.stop();
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ScannedResultScreen(vehicleId: vehicleId),
-        ),
-      );
+
+    if (vehicleId != null && vehicleId.isNotEmpty) {
+      try {
+        // Stop the camera while we verify the ID
+        _scannerController.stop();
+
+        // Check if the vehicle exists in Firestore
+        final vehicleDoc = await FirebaseFirestore.instance
+            .collection('vehicles')
+            .doc(vehicleId)
+            .get();
+
+        if (vehicleDoc.exists) {
+          // If vehicle exists, navigate to the result screen
+          if (mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ScannedResultScreen(vehicleId: vehicleId),
+              ),
+            );
+          }
+        } else {
+          // If vehicle does not exist, show an error message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid QR Code: Vehicle not found.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('An error occurred: $e')),
+          );
+        }
+      } finally {
+        // Restart the camera after a short delay, whether successful or not
+        if (mounted) {
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              _scannerController.start();
+              setState(() {
+                _isProcessing = false;
+              });
+            }
+          });
+        }
+      }
+    } else {
+      // If the QR code is empty, just restart processing
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
 
@@ -93,6 +151,21 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
               ),
             ),
           ),
+          // Show a processing indicator
+          if (_isProcessing)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text('Verifying QR Code...', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

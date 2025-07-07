@@ -25,6 +25,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   StreamSubscription<User?>? _authSubscription;
 
   String _userName = "User";
+  String? _profileImageUrl;
   List<Map<String, dynamic>> _vehicles = [];
 
   @override
@@ -58,6 +59,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       if (userDoc.exists && mounted) {
         setState(() {
           _userName = userDoc.get('name') ?? "User";
+          _profileImageUrl = (userDoc.data() as Map<String, dynamic>)['profileImageUrl'];
         });
       }
     }
@@ -620,9 +622,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               ],
             ),
           ),
-          const CircleAvatar(
+          CircleAvatar(
             radius: 30,
-            backgroundImage: AssetImage('assets/image/avatar.png'),
+            backgroundImage: _profileImageUrl != null && _profileImageUrl!.isNotEmpty
+                ? NetworkImage(_profileImageUrl!)
+                : const AssetImage('assets/image/avatar.png') as ImageProvider,
           )
         ],
       ),

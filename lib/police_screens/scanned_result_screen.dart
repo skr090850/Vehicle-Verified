@@ -1,4 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+
+// Data model for a single document's status
+class DocumentStatus {
+  final String name;
+  final String status;
+  final String expiry;
+
+  DocumentStatus({required this.name, required this.status, required this.expiry});
+}
 
 class ScannedResultScreen extends StatefulWidget {
   final String vehicleId;
@@ -9,87 +20,145 @@ class ScannedResultScreen extends StatefulWidget {
 }
 
 class _ScannedResultScreenState extends State<ScannedResultScreen> {
-  // --- MOCK DATA ---
-  // In a real app, this data would be fetched from Firestore based on widget.vehicleId
-  late Map<String, dynamic> _scannedData;
-  bool _isLoading = true;
+  late Future<Map<String, dynamic>> _scannedDataFuture;
 
   @override
   void initState() {
     super.initState();
-    _fetchVehicleData();
+    _scannedDataFuture = _fetchVehicleData();
   }
 
-  void _fetchVehicleData() {
-    // Simulate a network call to fetch data
-    Future.delayed(const Duration(seconds: 1), () {
-      setState(() {
-        _scannedData = {
-          'ownerName': 'Ravi Kumar',
-          'vehicleModel': 'Bajaj Pulsar',
-          'vehicleNumber': 'BR01Z1234',
-          'documents': [
-            {'name': 'Registration (RC)', 'status': 'valid', 'expiry': 'Lifetime'},
-            {'name': 'Insurance', 'status': 'valid', 'expiry': '15-Aug-2025'},
-            {'name': 'Pollution (PUC)', 'status': 'expired', 'expiry': '01-Jan-2024'},
-          ]
-        };
-        _isLoading = false;
-      });
-    });
+  /// Fetches all vehicle, owner, and document data from Firestore.
+  Future<Map<String, dynamic>> _fetchVehicleData() async {
+    try {
+      // 1. Fetch vehicle data
+      final vehicleDoc = await FirebaseFirestore.instance
+          .collection('vehicles')
+          .doc(widget.vehicleId)
+          .get();
+
+      if (!vehicleDoc.exists) {
+        throw Exception('Vehicle not found.');
+      }
+      final vehicleData = vehicleDoc.data() as Map<String, dynamic>;
+
+      // 2. Fetch owner data using ownerID from vehicle data
+      final ownerId = vehicleData['ownerID'];
+      String ownerName = 'Unknown Owner';
+      if (ownerId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(ownerId)
+            .get();
+        if (userDoc.exists) {
+          ownerName = (userDoc.data() as Map<String, dynamic>)['name'] ?? 'Unknown Owner';
+        }
+      }
+
+      // 3. Fetch documents and determine their status
+      final documentsSnapshot = await vehicleDoc.reference.collection('documents').get();
+      final List<DocumentStatus> documents = [];
+      bool allDocsVerified = documentsSnapshot.docs.isNotEmpty;
+
+      for (var doc in documentsSnapshot.docs) {
+        final docData = doc.data();
+        final expiryTimestamp = docData['expiryDate'] as Timestamp?;
+        String status = 'valid';
+        String expiryText = 'Lifetime';
+
+        if (expiryTimestamp != null) {
+          final expiryDate = expiryTimestamp.toDate();
+          expiryText = DateFormat.yMMMd().format(expiryDate);
+          if (expiryDate.isBefore(DateTime.now())) {
+            status = 'expired';
+            allDocsVerified = false;
+          }
+        }
+        documents.add(DocumentStatus(
+          name: docData['documentType'] ?? 'Unknown Document',
+          status: status,
+          expiry: expiryText,
+        ));
+      }
+
+      // 4. Combine all data into a single map
+      return {
+        'ownerName': ownerName,
+        'vehicleModel': '${vehicleData['make'] ?? ''} ${vehicleData['model'] ?? ''}',
+        'vehicleNumber': vehicleData['registrationNumber'] ?? 'N/A',
+        'documents': documents,
+        'isVerified': allDocsVerified,
+      };
+    } catch (e) {
+      // Propagate error to FutureBuilder
+      throw Exception('Failed to load vehicle data: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Fetching Details...')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _scannedDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Fetching Details...')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    final List<Map<String, String>> documents = List<Map<String, String>>.from(_scannedData['documents'] ?? []);
-    final bool isVerified = documents.every((doc) => doc['status'] == 'valid');
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: Center(child: Text('${snapshot.error}')),
+          );
+        }
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade200,
-      appBar: AppBar(
-        title: const Text('Verification Result', style: TextStyle(color: Colors.white)),
-        backgroundColor: isVerified ? Colors.green.shade700 : Colors.red.shade700,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildStatusBanner(isVerified),
-          const SizedBox(height: 24),
-          _buildInfoCard(
-            title: 'Owner & Vehicle Details',
-            details: {
-              'Owner Name': _scannedData['ownerName'] ?? 'N/A',
-              'Vehicle Model': _scannedData['vehicleModel'] ?? 'N/A',
-              'Registration No.': _scannedData['vehicleNumber'] ?? 'N/A',
-            },
+        final scannedData = snapshot.data!;
+        final List<DocumentStatus> documents = scannedData['documents'];
+        final bool isVerified = scannedData['isVerified'];
+
+        return Scaffold(
+          backgroundColor: Colors.grey.shade200,
+          appBar: AppBar(
+            title: const Text('Verification Result', style: TextStyle(color: Colors.white)),
+            backgroundColor: isVerified ? Colors.green.shade700 : Colors.red.shade700,
+            iconTheme: const IconThemeData(color: Colors.white),
           ),
-          const SizedBox(height: 24),
-          const Text('Document Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          ...documents.map((doc) => _buildDocumentStatusTile(doc)),
-        ],
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-          label: const Text('Scan Next Vehicle', style: TextStyle(color: Colors.white, fontSize: 16)),
-          onPressed: () => Navigator.of(context).pop(),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade700,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          body: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              _buildStatusBanner(isVerified),
+              const SizedBox(height: 24),
+              _buildInfoCard(
+                title: 'Owner & Vehicle Details',
+                details: {
+                  'Owner Name': scannedData['ownerName'],
+                  'Vehicle Model': scannedData['vehicleModel'],
+                  'Registration No.': scannedData['vehicleNumber'],
+                },
+              ),
+              const SizedBox(height: 24),
+              const Text('Document Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              ...documents.map((doc) => _buildDocumentStatusTile(doc)),
+            ],
           ),
-        ),
-      ),
+          bottomNavigationBar: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+              label: const Text('Scan Next Vehicle', style: TextStyle(color: Colors.white, fontSize: 16)),
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -158,8 +227,8 @@ class _ScannedResultScreenState extends State<ScannedResultScreen> {
     );
   }
 
-  Widget _buildDocumentStatusTile(Map<String, String> doc) {
-    final status = doc['status'] ?? 'unknown';
+  Widget _buildDocumentStatusTile(DocumentStatus doc) {
+    final status = doc.status;
     final Color color;
     final IconData icon;
 
@@ -186,9 +255,9 @@ class _ScannedResultScreenState extends State<ScannedResultScreen> {
       ),
       child: ListTile(
         leading: Icon(icon, color: color),
-        title: Text(doc['name'] ?? 'Unknown Document', style: const TextStyle(fontWeight: FontWeight.w500)),
+        title: Text(doc.name, style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text(
-          'Expires on: ${doc['expiry']}',
+          'Expires on: ${doc.expiry}',
           style: TextStyle(color: Colors.grey[600]),
         ),
         trailing: Text(

@@ -1,14 +1,66 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vehicle_verified/police_screens/manual_entry_screen.dart';
-import 'package:vehicle_verified/police_screens/police_scanner_screen.dart'; // Import the new scanner screen
+import 'package:vehicle_verified/police_screens/police_scanner_screen.dart';
 
-class PoliceHomeScreen extends StatelessWidget {
+class PoliceHomeScreen extends StatefulWidget {
   const PoliceHomeScreen({super.key});
 
-  // --- MOCK DATA ---
-  final String officerName = "Insp. Raj Sharma";
+  @override
+  State<PoliceHomeScreen> createState() => _PoliceHomeScreenState();
+}
+
+class _PoliceHomeScreenState extends State<PoliceHomeScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  String _officerName = "Loading...";
+  bool _isLoading = true;
+
+  // --- MOCK DATA for stats (can be replaced with real data later) ---
   final int scansToday = 28;
   final int issuesFound = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOfficerData();
+  }
+
+  /// Fetches the logged-in police officer's data from Firestore.
+  Future<void> _fetchOfficerData() async {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      if (mounted) {
+        setState(() {
+          _officerName = "Guest";
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final DocumentSnapshot userDoc =
+      await _firestore.collection('users').doc(user.uid).get();
+
+      if (userDoc.exists && mounted) {
+        final data = userDoc.data() as Map<String, dynamic>;
+        setState(() {
+          _officerName = data['name'] ?? 'Officer';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _officerName = "Error";
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +76,9 @@ class PoliceHomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildWelcomeCard(),
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _buildWelcomeCard(),
             const SizedBox(height: 24),
             _buildStatsGrid(),
             const Spacer(),
@@ -75,7 +129,7 @@ class PoliceHomeScreen extends StatelessWidget {
               children: [
                 const Text('Welcome Back,', style: TextStyle(color: Colors.black54)),
                 Text(
-                  officerName,
+                  _officerName,
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ],

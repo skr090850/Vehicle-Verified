@@ -52,10 +52,11 @@ class _GenerateQrCodeScreenState extends State<GenerateQrCodeScreen> {
         return data;
       }).toList();
     } catch (e) {
-      // Error handle karein
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to fetch vehicles: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch vehicles: $e')),
+        );
+      }
       return [];
     }
   }
