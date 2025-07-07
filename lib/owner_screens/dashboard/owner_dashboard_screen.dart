@@ -600,9 +600,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               }),
               _buildActionChip('Documents', Icons.folder_copy_outlined, () {
                 Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const ViewAllDocumentsScreen()));
+                  context,
+                  MaterialPageRoute(
+                    // Yahan 'vehicle' parameter ko pass karein
+                    builder: (context) => ViewAllDocumentsScreen(vehicle: vehicle),
+                  ),
+                );
               }),
               _buildActionChip('Upload Doc', Icons.upload_file_outlined, () {
                 _showUploadDocumentSheet(context, vehicle);
