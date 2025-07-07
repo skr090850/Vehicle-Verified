@@ -28,7 +28,22 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _pucProviderController = TextEditingController();
 
   String? _selectedVehicleType;
-  final List<String> _vehicleTypes = ['Two Wheeler', 'Three Wheeler', 'Four Wheeler'];
+  // --- START: UPDATED VEHICLE TYPE LIST ---
+  final List<String> _vehicleTypes = [
+    'Scooty',
+    'Motorcycle',
+    'Car (Sedan)',
+    'Car (SUV)',
+    'Car (Hatchback)',
+    'Jeep',
+    'Truck',
+    'Bus',
+    'Tempo',
+    'Auto-rickshaw',
+    'Tractor',
+    'E-Rickshaw'
+  ];
+  // --- END: UPDATED VEHICLE TYPE LIST ---
 
   DateTime? _registeredDate;
   DateTime? _insuranceExpiryDate;
@@ -81,12 +96,33 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         throw Exception("User not logged in.");
       }
 
-      String imagePath = 'assets/image/car_sedan.png';
-      if (_selectedVehicleType == 'Two Wheeler') {
-        imagePath = 'assets/image/scooter.png';
-      } else if (_selectedVehicleType == 'Three Wheeler') {
-        imagePath = 'assets/image/tempo.png';
+      // --- START: UPDATED IMAGE SELECTION LOGIC ---
+      String imagePath = 'assets/image/car_sedan.png'; // Default image
+      switch (_selectedVehicleType) {
+        case 'Scooty':
+        case 'Motorcycle':
+          imagePath = 'assets/image/scooter.png';
+          break;
+        case 'Tempo':
+        case 'Auto-rickshaw':
+        case 'E-Rickshaw':
+          imagePath = 'assets/image/tempo.png';
+          break;
+        case 'Car (Sedan)':
+        case 'Car (SUV)':
+        case 'Car (Hatchback)':
+        case 'Jeep':
+          imagePath = 'assets/image/car_sedan.png';
+          break;
+      // Add more cases for other vehicle types if you have specific images
+      // case 'Truck':
+      //   imagePath = 'assets/image/truck.png';
+      //   break;
+      // case 'Bus':
+      //   imagePath = 'assets/image/bus.png';
+      //   break;
       }
+      // --- END: UPDATED IMAGE SELECTION LOGIC ---
 
       // Create the main vehicle document
       DocumentReference vehicleRef = await FirebaseFirestore.instance.collection('vehicles').add({

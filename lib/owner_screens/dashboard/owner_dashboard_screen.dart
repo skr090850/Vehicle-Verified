@@ -18,67 +18,13 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
-  // Firebase instances (Firebase version ke liye zaroori)
+  // Firebase instances
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // State variables
   String _userName = "User";
   List<Map<String, dynamic>> _vehicles = [];
-
-  // --- START: MANUAL MOCK DATA FOR UI TESTING ---
-  // Firebase se data fetch karne ke liye isey comment kar dein
-  final String _mockUserName = "Suraj Kumar";
-  // final List<Map<String, dynamic>> _mockVehicles = [
-  //   {
-  //     'id': 'mock_vehicle_1',
-  //     'make': 'Honda',
-  //     'model': 'Activa 6G',
-  //     'registrationNumber': 'BR01AB1234',
-  //     'image': 'assets/image/scooter.png',
-  //     'status': 'All Documents Verified',
-  //     'health': 'Good',
-  //     'alerts': [
-  //       {'type': 'Insurance Policy', 'expiry': 'Expires in 25 days'}
-  //     ],
-  //     'services': [
-  //       {'name': 'General Service', 'date': '12 May 2024'}
-  //     ]
-  //   },
-  //   {
-  //     'id': 'mock_vehicle_2',
-  //     'make': 'Maruti Suzuki',
-  //     'model': 'Swift VXI',
-  //     'registrationNumber': 'DL05CD5678',
-  //     'image': 'assets/image/car_sedan.png',
-  //     'status': 'PUC Expired',
-  //     'health': 'Needs Attention',
-  //     'alerts': [
-  //       {'type': 'Pollution (PUC)', 'expiry': 'Expired 2 days ago'}
-  //     ],
-  //     'services': [
-  //       {'name': 'AC Repair', 'date': '22 Jun 2024'}
-  //     ]
-  //   },
-  //   {
-  //     'id': 'mock_vehicle_2',
-  //     'make': 'Maruti Suzuki',
-  //     'model': 'Swift VXI',
-  //     'registrationNumber': 'DL05CD5678',
-  //     'image': 'assets/image/car_sedan.png',
-  //     'status': 'PUC Expired',
-  //     'health': 'Needs Attention',
-  //     'alerts': [
-  //       {'type': 'Pollution (PUC)', 'expiry': 'Expired 2 days ago'}
-  //     ],
-  //     'services': [
-  //       {'name': 'AC Repair', 'date': '22 Jun 2024'}
-  //     ]
-  //   }
-  // ];
-  // --- END: MANUAL MOCK DATA ---
-
-  // ---START : For fetch data from Firebase---
 
   @override
   void initState() {
@@ -99,6 +45,95 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
+  // --- START: UPDATED DOCUMENT UPLOAD LOGIC ---
+  /// Handles the logic for uploading/replacing a document.
+  Future<void> _handleDocumentUpload(String selectedDocType, Map<String, dynamic> vehicle) async {
+    // Close the initial bottom sheet
+    Navigator.of(context).pop();
+
+    // Show a loading indicator while checking Firestore
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Check if a document of the same type already exists
+      final querySnapshot = await _firestore
+          .collection('vehicles')
+          .doc(vehicle['id'])
+          .collection('documents')
+          .where('documentType', isEqualTo: selectedDocType)
+          .limit(1) // We only need to know if at least one exists
+          .get();
+
+      // Close the loading indicator
+      if(mounted) Navigator.of(context).pop();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Document exists, so ask the user for confirmation to replace
+        final existingDocId = querySnapshot.docs.first.id;
+        final bool? shouldReplace = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Replace Document?'),
+              content: Text("A document for '$selectedDocType' already exists. Do you want to replace it?"),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false), // User chose not to replace
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true), // User chose to replace
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('Replace'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (shouldReplace == true && mounted) {
+          // User wants to replace, navigate to the edit screen with the existing documentId
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddEditDocumentScreen(
+                documentType: selectedDocType,
+                vehicleId: vehicle['id'],
+                documentId: existingDocId, // Pass the ID to enable update mode
+              ),
+            ),
+          );
+        }
+      } else {
+        // Document doesn't exist, navigate to add a new one
+        if(mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddEditDocumentScreen(
+                documentType: selectedDocType,
+                vehicleId: vehicle['id'],
+                // No documentId is passed, so it will be in "add new" mode
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // In case of an error, close the loading indicator and show a message
+      if(mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error checking document: $e")),
+        );
+      }
+    }
+  }
+
   void _showUploadDocumentSheet(BuildContext context, Map<String, dynamic> vehicle) {
     final List<String> documentTypes = [
       'Registration Certificate (RC)',
@@ -110,7 +145,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     showModalBottomSheet(
       context: context,
-      // Bottom sheet ke corners ko gol karne ke liye
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -118,16 +152,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Content ke hisaab se height lega
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
               const Text(
                 'Select Document to Upload',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              // Documents ki list
               ListView.builder(
                 shrinkWrap: true,
                 itemCount: documentTypes.length,
@@ -136,19 +168,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     title: Text(documentTypes[index]),
                     leading: const Icon(Icons.article_outlined),
                     onTap: () {
-                      // Bottom sheet ko band karein
-                      Navigator.of(context).pop();
-
-                      // Upload screen par navigate karein
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AddEditDocumentScreen(
-                            documentType: documentTypes[index],
-                            vehicleId: vehicle['id'],
-                          ),
-                        ),
-                      );
+                      // The tap now calls the new handler function
+                      _handleDocumentUpload(documentTypes[index], vehicle);
                     },
                   );
                 },
@@ -160,48 +181,97 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       },
     );
   }
+  // --- END: UPDATED DOCUMENT UPLOAD LOGIC ---
 
-  void _showFeaturesBottomSheet(BuildContext context) {
-    // ... (existing code remains the same)
+  /// Yeh widget vehicle ke documents ko live sunega aur status calculate karega.
+  Widget _buildVehicleStatusWidget(Map<String, dynamic> vehicle) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('vehicles')
+          .doc(vehicle['id'])
+          .collection('documents')
+          .snapshots(),
+      builder: (context, docSnapshot) {
+        if (docSnapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 10,
+            width: 10,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        }
+
+        // --- Status Calculation Logic ---
+        final documents = docSnapshot.data?.docs ?? [];
+        MaterialColor statusColor = Colors.grey;
+        String statusText = 'Documents Pending';
+
+        if (documents.isEmpty) {
+          statusText = 'Documents Missing';
+          statusColor = Colors.red;
+        } else {
+          bool allVerified = true;
+          String expiringSoonDoc = '';
+          String expiredDoc = '';
+
+          for (var doc in documents) {
+            final data = doc.data() as Map<String, dynamic>;
+            final Timestamp? expiryTimestamp = data['expiryDate'];
+            if (expiryTimestamp != null) {
+              final expiryDate = expiryTimestamp.toDate();
+              if (expiryDate.isBefore(DateTime.now())) {
+                allVerified = false;
+                expiredDoc = data['documentType'] ?? 'Document';
+                break; // Expired document ko sabse zyada priority deni hai
+              }
+              if (expiryDate.isBefore(DateTime.now().add(const Duration(days: 30)))) {
+                allVerified = false;
+                expiringSoonDoc = data['documentType'] ?? 'Document';
+              }
+            }
+          }
+
+          if (expiredDoc.isNotEmpty) {
+            statusText = '$expiredDoc Expired';
+            statusColor = Colors.red;
+          } else if (expiringSoonDoc.isNotEmpty) {
+            statusText = '$expiringSoonDoc Expiring';
+            statusColor = Colors.orange;
+          } else if (allVerified) {
+            var docTypes = documents.map((d) => (d.data() as Map)['documentType']).toSet();
+            if (docTypes.contains('Insurance Policy') && docTypes.contains('Pollution Under Control (PUC)')) {
+              statusText = 'All Documents Verified';
+              statusColor = Colors.green;
+            } else {
+              statusText = 'Essential Docs Missing';
+              statusColor = Colors.orange;
+            }
+          } else {
+            statusText = 'Documents Pending';
+            statusColor = Colors.blue;
+          }
+        }
+        // --- End Status Calculation Logic ---
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            statusText,
+            style: TextStyle(
+              color: statusColor.shade800,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // --- START: MANUAL DATA USAGE ---
-    // _userName = _mockUserName;
-    // _vehicles = _mockVehicles;
-    // final bool hasVehicles = _vehicles.isNotEmpty;
-    //
-    // return Scaffold(
-    //   backgroundColor: AppColors.backgroundColorOwner,
-    //   appBar: _buildAppBar(hasVehicles),
-    //   body: hasVehicles
-    //       ? DefaultTabController(
-    //     length: _vehicles.length,
-    //     child: _buildMainDashboard(),
-    //   )
-    //       : _buildInteractiveEmptyState(),
-    //   floatingActionButton: hasVehicles
-    //       ? Padding(
-    //     padding: const EdgeInsets.only(bottom: 90.0),
-    //     child: FloatingActionButton(
-    //       onPressed: () {
-    //         Navigator.push(
-    //             context,
-    //             MaterialPageRoute(
-    //                 builder: (context) => const AddVehicleScreen()));
-    //       },
-    //       backgroundColor: AppColors.primaryColorOwner,
-    //       child: const Icon(Icons.add, color: Colors.white),
-    //       // label: const Text("", style: TextStyle(color: Colors.white)),
-    //     ),
-    //   )
-    //       : null,
-    // );
-    // --- END: MANUAL DATA USAGE ---
-
-
-    // --- START: FIREBASE DATA USAGE ---
     User? user = _auth.currentUser;
     if (user == null) {
       return const Scaffold(body: Center(child: Text("User not logged in.")));
@@ -233,30 +303,28 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           appBar: _buildAppBar(hasVehicles),
           body: hasVehicles
               ? DefaultTabController(
-                  length: _vehicles.length,
-                  child: _buildMainDashboard(),
-                )
+            length: _vehicles.length,
+            child: _buildMainDashboard(),
+          )
               : _buildInteractiveEmptyState(),
           floatingActionButton: hasVehicles
               ? Padding(
-                  padding: const EdgeInsets.only(bottom: 90.0),
-                  child: FloatingActionButton(
-                    onPressed: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const AddVehicleScreen()));
-                    },
-                    backgroundColor: AppColors.primaryColorOwner,
-                    child: const Icon(Icons.add, color: Colors.white),
-                    // label: const Text("Add Vehicle", style: TextStyle(color: Colors.white)),
-                  ),
-                )
+            padding: const EdgeInsets.only(bottom: 90.0),
+            child: FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const AddVehicleScreen()));
+              },
+              backgroundColor: AppColors.primaryColorOwner,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
+          )
               : null,
         );
       },
     );
-    // --- END: FIREBASE DATA USAGE ---
   }
 
   Widget _buildMainDashboard() {
@@ -397,15 +465,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       elevation: 0,
       actions: [
         if (hasVehicles)
-          // IconButton(
-          //   icon: const Icon(Icons.widgets_outlined, color: Colors.white),
-          //   tooltip: 'Quick Actions',
-          //   onPressed: () => _showFeaturesBottomSheet(context),
-          // ),
-        IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.white),
-          onPressed: () {},
-        ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Colors.white),
+            onPressed: () {},
+          ),
         IconButton(
           icon: const Icon(Icons.logout, color: Colors.white),
           onPressed: () async {
@@ -505,26 +568,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           style: const TextStyle(
                               color: Colors.black54, fontSize: 16)),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: (vehicle['status'] ?? '').contains('expiring')
-                              ? Colors.orange.withOpacity(0.2)
-                              : Colors.green.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          vehicle['status'] ?? 'Status unknown',
-                          style: TextStyle(
-                            color: (vehicle['status'] ?? '')
-                                .contains('expiring')
-                                ? Colors.orange.shade800
-                                : Colors.green.shade800,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                      _buildVehicleStatusWidget(vehicle),
                     ],
                   ),
                 )
@@ -552,7 +596,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     context,
                     MaterialPageRoute(
                         builder: (context) => GenerateQrCodeScreen(
-                            vehicle: vehicle.cast<String, String>())));
+                            vehicle: vehicle)));
               }),
               _buildActionChip('Documents', Icons.folder_copy_outlined, () {
                 Navigator.push(
@@ -672,27 +716,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         Text(service['date']!, style: TextStyle(color: Colors.grey.shade600)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {},
-      ),
-    );
-  }
-
-  Widget _buildBottomSheetAction(
-      String label, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.grey.shade200,
-            child: Icon(icon, color: AppColors.primaryColorOwner, size: 28),
-          ),
-          const SizedBox(height: 8),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12)),
-        ],
       ),
     );
   }
