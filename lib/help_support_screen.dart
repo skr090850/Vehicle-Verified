@@ -25,7 +25,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   void _showAIChatBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the sheet to take up more screen height
+      isScrollControlled:
+          true, // Allows the sheet to take up more screen height
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         // We use a DraggableScrollableSheet for a better user experience
@@ -47,16 +48,17 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     const String contactEmail = 'skr090850@gmail.com';
     final Map<String, String> faq = {
       'How do I add a new vehicle?':
-      'From the main dashboard, tap the floating "+" button at the bottom to open the "Add Vehicle" form. Fill in the details and tap "Save".',
+          'From the main dashboard, tap the floating "+" button at the bottom to open the "Add Vehicle" form. Fill in the details and tap "Save".',
       'How is my data secured?':
-      'All your data, including personal information and document images, is securely stored and encrypted using industry-standard protocols on Firebase servers.',
+          'All your data, including personal information and document images, is securely stored and encrypted using industry-standard protocols on Firebase servers.',
       'What happens if a document expires?':
-      'The app will send you a notification before the expiry date. The document status will also change to "Expired" in the app.',
+          'The app will send you a notification before the expiry date. The document status will also change to "Expired" in the app.',
     };
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Help & Support', style: TextStyle(color: Colors.white)),
+        title:
+            const Text('Help & Support', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.grey.shade800,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -69,7 +71,10 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          ...faq.entries.map((entry) => _buildFaqTile(question: entry.key, answer: entry.value)).toList(),
+          ...faq.entries
+              .map((entry) =>
+                  _buildFaqTile(question: entry.key, answer: entry.value))
+              .toList(),
           const SizedBox(height: 32),
           const Text(
             'Contact Developer',
@@ -79,11 +84,15 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
           _buildContactCard(context, contactEmail),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAIChatBottomSheet(context),
-        icon: const Icon(Icons.smart_toy_outlined),
-        label: const Text('AI Assistant'),
-        backgroundColor: Theme.of(context).primaryColor,
+      floatingActionButton: SizedBox(
+        height: 80,
+        width: 80,
+        child: FloatingActionButton(
+          onPressed: () => _showAIChatBottomSheet(context),
+          shape: const CircleBorder(),
+          backgroundColor: Theme.of(context).primaryColor,
+          child: const Icon(Icons.smart_toy_outlined, size: 60,color: Colors.white,),
+        ),
       ),
     );
   }
@@ -94,10 +103,12 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
-        title: Text(question, style: const TextStyle(fontWeight: FontWeight.w500)),
+        title:
+            Text(question, style: const TextStyle(fontWeight: FontWeight.w500)),
         childrenPadding: const EdgeInsets.all(16),
         children: [
-          Text(answer, style: TextStyle(color: Colors.grey.shade700, height: 1.5)),
+          Text(answer,
+              style: TextStyle(color: Colors.grey.shade700, height: 1.5)),
         ],
       ),
     );
@@ -124,7 +135,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               final Uri url = Uri(
                 scheme: 'mailto',
                 path: email,
-                query: 'subject=VehicleVerified App Support&body=Hello Suraj,\n\n',
+                query:
+                    'subject=VehicleVerified App Support&body=Hello Suraj,\n\n',
               );
               if (!await launchUrl(url)) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -138,7 +150,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     );
   }
 }
-
 
 // --- AI CHAT WIDGET (for Bottom Sheet) ---
 class AIChatSheet extends StatefulWidget {
@@ -185,7 +196,9 @@ class _AIChatSheetState extends State<AIChatSheet> {
       });
     } catch (e) {
       setState(() {
-        _messages.add(Message(text: "Sorry, an error occurred. Please try again.", isUser: false));
+        _messages.add(Message(
+            text: "Sorry, an error occurred. Please try again.",
+            isUser: false));
       });
     } finally {
       setState(() {
@@ -202,7 +215,8 @@ class _AIChatSheetState extends State<AIChatSheet> {
       return "API Key is not configured. Please contact the developer.";
     }
 
-    final apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=$apiKey';
+    final apiUrl =
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=$apiKey';
 
     final prompt = '''
       You are "VehicleVerified AI Assistant", a friendly and expert guide for the "VehicleVerified" mobile app.
@@ -229,7 +243,13 @@ class _AIChatSheetState extends State<AIChatSheet> {
       Uri.parse(apiUrl),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'contents': [{'parts': [{'text': prompt}]}]
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt}
+            ]
+          }
+        ]
       }),
     );
 
@@ -262,7 +282,8 @@ class _AIChatSheetState extends State<AIChatSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       // --- START: Added Padding to avoid keyboard ---
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       // --- END: Added Padding ---
       child: Column(
         children: [
@@ -283,7 +304,8 @@ class _AIChatSheetState extends State<AIChatSheet> {
               itemCount: _messages.length + (_isBotTyping ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == _messages.length) {
-                  return _buildMessageBubble(Message(text: "Typing...", isUser: false));
+                  return _buildMessageBubble(
+                      Message(text: "Typing...", isUser: false));
                 }
                 return _buildMessageBubble(_messages[index]);
               },
@@ -303,7 +325,9 @@ class _AIChatSheetState extends State<AIChatSheet> {
         margin: const EdgeInsets.symmetric(vertical: 4.0),
         padding: const EdgeInsets.all(10.0),
         decoration: BoxDecoration(
-          color: message.isUser ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.white,
+          color: message.isUser
+              ? Theme.of(context).primaryColor.withOpacity(0.1)
+              : Colors.white,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(message.text, style: const TextStyle(fontSize: 15)),
@@ -320,7 +344,8 @@ class _AIChatSheetState extends State<AIChatSheet> {
           Expanded(
             child: TextField(
               controller: _textController,
-              decoration: const InputDecoration.collapsed(hintText: 'Ask a question...'),
+              decoration: const InputDecoration.collapsed(
+                  hintText: 'Ask a question...'),
               onSubmitted: (_) => _sendMessage(),
             ),
           ),

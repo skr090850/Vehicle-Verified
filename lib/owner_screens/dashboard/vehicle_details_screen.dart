@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // Naya import
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart';
 import 'package:vehicle_verified/themes/color.dart';
@@ -16,7 +16,6 @@ class VehicleDetailsScreen extends StatefulWidget {
 }
 
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
-  // Vehicle delete karne ka function (pehla jaisa hi)
   Future<void> _deleteVehicle() async {
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
@@ -64,8 +63,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     }
   }
 
-  // --- START: NAYA FUNCTION ---
-  /// Sirf ek document ko delete karne ka function
   Future<void> _deleteDocument(String documentId, String? imageUrl) async {
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
@@ -90,7 +87,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
 
     if (confirmDelete == true) {
       try {
-        // Step 1: Document ko Firestore se delete karein
         await FirebaseFirestore.instance
             .collection('vehicles')
             .doc(widget.vehicle['id'])
@@ -98,7 +94,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
             .doc(documentId)
             .delete();
 
-        // Step 2: Agar image URL hai, to file ko Storage se bhi delete karein
         if (imageUrl != null && imageUrl.isNotEmpty) {
           await FirebaseStorage.instance.refFromURL(imageUrl).delete();
         }
@@ -117,7 +112,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       }
     }
   }
-  // --- END: NAYA FUNCTION ---
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +242,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     );
   }
 
-  /// Document card jismein ab delete icon bhi hai
   Widget _buildDocumentCard(Map<String, dynamic> docData, String documentId) {
     final String docType = docData['documentType'] ?? 'Unknown Document';
     final Timestamp? expiryTimestamp = docData['expiryDate'];
@@ -298,7 +291,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                 ],
               ),
             ),
-            // View/Renew/Update button
             TextButton(
               onPressed: () {
                 if (status == 'expiring' || status == 'expired') {
@@ -330,7 +322,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               },
               child: Text(actionText),
             ),
-            // --- START: NAYA DELETE ICON BUTTON ---
             IconButton(
               icon: Icon(Icons.delete_outline, color: Colors.grey.shade600),
               tooltip: 'Delete Document',
@@ -338,7 +329,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                 _deleteDocument(documentId, imageUrl);
               },
             ),
-            // --- END: NAYA DELETE ICON BUTTON ---
           ],
         ),
       ),

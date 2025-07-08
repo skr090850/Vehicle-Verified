@@ -18,7 +18,7 @@ class OwnerDashboardScreen extends StatefulWidget {
   @override
   State<OwnerDashboardScreen> createState() => _OwnerDashboardScreenState();
 }
-
+// ---------------------------- STATE CLASS START -------------------------------------
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -28,7 +28,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   String? _profileImageUrl;
   List<Map<String, dynamic>> _vehicles = [];
 
+  // **************************** START: FLUTTER CLASS AND LIFESTYLE FUNCTIONS ****************************
   @override
+  // --- LOGIC: AUTH CHECK AND USER DATA FETCH ---
   void initState() {
     super.initState();
     _authSubscription = _auth.authStateChanges().listen((User? user) {
@@ -44,13 +46,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       }
     });
   }
-
+  
   @override
+  // --- LOGIC: DISPOSE METHOD (CLOSE THE STREAM LISTENER OF FIREBASE AFTER APP CLOSE) ---
   void dispose() {
     _authSubscription?.cancel();
     super.dispose();
   }
+  // ****************************** END: FLUTTER CLASS AND LIFESTYLE FUNCTIONS ******************************
 
+  // ******************************** STAART: FIREBASE RELATED DATA LOADERS ********************************
+  // --- FETCH USER DATA FROM FIRESTORE (NAME AND PROFILE IMAGE) ---
   Future<void> _fetchUserData() async {
     User? user = _auth.currentUser;
     if (user != null) {
@@ -65,6 +71,39 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
+  // --- LOGIC: NOTIFICATION ---
+  Stream<int> _getPendingConfirmationsCountStream() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value(0);
+    return _firestore
+        .collectionGroup('serviceHistory')
+        .where('status', isEqualTo: 'Booked')
+        .snapshots()
+        .asyncMap((snapshot) async {
+      int count = 0;
+      for (var doc in snapshot.docs) {
+        try {
+          final vehicleRef = doc.reference.parent.parent;
+          if (vehicleRef != null) {
+            final vehicleDoc = await vehicleRef.get();
+            if (vehicleDoc.exists && vehicleDoc.data()?['ownerID'] == user.uid) {
+              final serviceDate = (doc.data()['serviceDate'] as Timestamp?)?.toDate();
+              if (serviceDate != null && serviceDate.isBefore(DateTime.now())) {
+                count++;
+              }
+            }
+          }
+        } catch (e) {
+          // Handle potential errors, e.g., permission issues
+          print("Error checking notification: $e");
+        }
+      }
+      return count;
+    });
+  }
+
+  
+  // --- LOGIC: DOCUMENT UPLOAD (CHECK IF DOCUMENT EXISTS AND NAVIGATE TO ADD/EDIT SCREEN) ---
   Future<void> _handleDocumentUpload(
       String selectedDocType, Map<String, dynamic> vehicle) async {
     if (!mounted) return;
@@ -145,45 +184,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       }
     }
   }
+  // ********************************* END: FIREBASE RELATED DATA LOADERS *********************************
 
-  // --- START: CORRECTED NOTIFICATION LOGIC ---
-  Stream<int> _getPendingConfirmationsCountStream() {
-    final user = _auth.currentUser;
-    if (user == null) return Stream.value(0);
-
-    return _firestore
-        .collectionGroup('serviceHistory')
-        .where('status', isEqualTo: 'Booked')
-        .snapshots()
-        .asyncMap((snapshot) async {
-      int count = 0;
-      for (var doc in snapshot.docs) {
-        try {
-          final vehicleRef = doc.reference.parent.parent;
-          if (vehicleRef != null) {
-            final vehicleDoc = await vehicleRef.get();
-            if (vehicleDoc.exists && vehicleDoc.data()?['ownerID'] == user.uid) {
-              final serviceDate = (doc.data()['serviceDate'] as Timestamp?)?.toDate();
-              if (serviceDate != null && serviceDate.isBefore(DateTime.now())) {
-                count++;
-              }
-            }
-          }
-        } catch (e) {
-          // Handle potential errors, e.g., permission issues
-          print("Error checking notification: $e");
-        }
-      }
-      return count;
-    });
-  }
-
-  void _showNotificationsDialog() {
-    Navigator.push(
-        context, MaterialPageRoute(builder: (_) => const ServiceHistoryScreen()));
-  }
-  // --- END: CORRECTED NOTIFICATION LOGIC ---
-
+  // ********************************* START: BOTTOM SHEETS AND DIALOGS *********************************
+  // --- UI: UPLOAD DOCUMENT SHEET ---
   void _showUploadDocumentSheet(
       BuildContext context, Map<String, dynamic> vehicle) {
     final List<String> documentTypes = [
@@ -232,94 +236,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  Widget _buildVehicleStatusWidget(Map<String, dynamic> vehicle) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('vehicles')
-          .doc(vehicle['id'])
-          .collection('documents')
-          .snapshots(),
-      builder: (context, docSnapshot) {
-        if (docSnapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 10,
-            width: 10,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          );
-        }
-
-        final documents = docSnapshot.data?.docs ?? [];
-        MaterialColor statusColor = Colors.grey;
-        String statusText = 'Documents Pending';
-
-        if (documents.isEmpty) {
-          statusText = 'Documents Missing';
-          statusColor = Colors.red;
-        } else {
-          bool allVerified = true;
-          String expiringSoonDoc = '';
-          String expiredDoc = '';
-
-          for (var doc in documents) {
-            final data = doc.data() as Map<String, dynamic>;
-            final Timestamp? expiryTimestamp = data['expiryDate'];
-            if (expiryTimestamp != null) {
-              final expiryDate = expiryTimestamp.toDate();
-              if (expiryDate.isBefore(DateTime.now())) {
-                allVerified = false;
-                expiredDoc = data['documentType'] ?? 'Document';
-                break;
-              }
-              if (expiryDate
-                  .isBefore(DateTime.now().add(const Duration(days: 30)))) {
-                allVerified = false;
-                expiringSoonDoc = data['documentType'] ?? 'Document';
-              }
-            }
-          }
-
-          if (expiredDoc.isNotEmpty) {
-            statusText = '$expiredDoc Expired';
-            statusColor = Colors.red;
-          } else if (expiringSoonDoc.isNotEmpty) {
-            statusText = '$expiringSoonDoc Expiring';
-            statusColor = Colors.orange;
-          } else if (allVerified) {
-            var docTypes =
-            documents.map((d) => (d.data() as Map)['documentType']).toSet();
-            if (docTypes.contains('Insurance Policy') &&
-                docTypes.contains('Pollution Under Control (PUC)')) {
-              statusText = 'All Documents Verified';
-              statusColor = Colors.green;
-            } else {
-              statusText = 'Essential Docs Missing';
-              statusColor = Colors.orange;
-            }
-          } else {
-            statusText = 'Documents Pending';
-            statusColor = Colors.blue;
-          }
-        }
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            statusText,
-            style: TextStyle(
-              color: statusColor.shade800,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        );
-      },
-    );
+  // --- UI: SHOW NOTIFICATIONS DIALOG ---
+  void _showNotificationsDialog() {
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const ServiceHistoryScreen()));
   }
+  // ********************************* END: BOTTOM SHEETS AND DIALOGS *********************************
 
+  // **************************** START: UI BUILD METHODS (TOP TO BUTTOM UI COMPONENTS) ****************************
   @override
+  // --- UI: MAIN SCREEN BUILD METHOD (VEHICLE ? TAB LAYOUT : EMPTY DASHBOARD)---
   Widget build(BuildContext context) {
     User? user = _auth.currentUser;
     if (user == null) {
@@ -377,138 +303,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       },
     );
   }
-
-  Widget _buildMainDashboard() {
-    return NestedScrollView(
-      headerSliverBuilder: (context, innerBoxIsScrolled) {
-        return [
-          SliverToBoxAdapter(child: _buildUserCard()),
-          SliverPersistentHeader(
-            delegate: _SliverTabBarDelegate(
-              TabBar(
-                isScrollable: true,
-                indicatorColor: AppColors.primaryColorOwner,
-                labelColor: AppColors.primaryColorOwner,
-                unselectedLabelColor: Colors.grey.shade600,
-                tabs: _vehicles.map((v) => Tab(text: v['model'])).toList(),
-              ),
-            ),
-            pinned: true,
-          ),
-        ];
-      },
-      body: TabBarView(
-        children: _vehicles.map((vehicle) {
-          return _buildVehicleTabContent(vehicle);
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildInteractiveEmptyState() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 120.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _buildUserCard(),
-          const SizedBox(height: 32),
-          Text(
-            'Welcome to Your Digital Garage!',
-            style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Start by adding your first vehicle to manage all your documents and services in one place.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const AddVehicleScreen()));
-            },
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text('Add Your First Vehicle',
-                style: TextStyle(color: Colors.white, fontSize: 16)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryColorOwner,
-              padding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(height: 40),
-          _buildFeatureShowcaseCard(
-              Icons.shield_outlined,
-              'Secure Document Wallet',
-              'Upload and store your RC, Insurance, and PUC certificates safely.'),
-          const SizedBox(height: 20),
-          _buildFeatureShowcaseCard(
-              Icons.qr_code_scanner,
-              'Instant QR Verification',
-              'Generate a unique QR code for your vehicle for quick verification by officials.'),
-          const SizedBox(height: 20),
-          _buildFeatureShowcaseCard(
-              Icons.notifications_active_outlined,
-              'Expiry Reminders',
-              'Get timely alerts before your important documents expire.'),
-          const SizedBox(height: 20),
-          _buildFeatureShowcaseCard(
-              Icons.miscellaneous_services_outlined,
-              'Service Management',
-              'Book vehicle services and keep a complete history of all maintenance.'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeatureShowcaseCard(
-      IconData icon, String title, String subtitle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4))
-          ]),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: AppColors.primaryColorOwner.withOpacity(0.1),
-            child: Icon(icon, color: AppColors.primaryColorOwner, size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(color: Colors.grey.shade700)),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
+  
+  // --- UI: APP BAR WITH USER NAME, NOTIFICATIONS AND LOGOUT BUTTON ---
   AppBar _buildAppBar(bool hasVehicles) {
     final String firstName = _userName.split(' ').first;
     return AppBar(
@@ -580,6 +376,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  // --- UI: USER CARD (SHOWS USER NAME, VEHICLE COUNT AND PROFILE IMAGE) ---
   Widget _buildUserCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -633,7 +430,104 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  // --- START: UPDATED VEHICLE TAB CONTENT ---
+  // --- UI: SHOW VEHICLE USING TAB BAR ---
+  Widget _buildMainDashboard() {
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverToBoxAdapter(child: _buildUserCard()),
+          SliverPersistentHeader(
+            delegate: _SliverTabBarDelegate(
+              TabBar(
+                isScrollable: true,
+                indicatorColor: AppColors.primaryColorOwner,
+                labelColor: AppColors.primaryColorOwner,
+                unselectedLabelColor: Colors.grey.shade600,
+                tabs: _vehicles.map((v) => Tab(text: v['model'])).toList(),
+              ),
+            ),
+            pinned: true,
+          ),
+        ];
+      },
+      body: TabBarView(
+        children: _vehicles.map((vehicle) {
+          return _buildVehicleTabContent(vehicle);
+        }).toList(),
+      ),
+    );
+  }
+
+  // --- UI: WELCOME SCREEN WHEN THE USE HAS NO VEHICLE ---
+  Widget _buildInteractiveEmptyState() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 120.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _buildUserCard(),
+          const SizedBox(height: 32),
+          Text(
+            'Welcome to Your Digital Garage!',
+            style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Start by adding your first vehicle to manage all your documents and services in one place.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddVehicleScreen()));
+            },
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('Add Your First Vehicle',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryColorOwner,
+              padding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 40),
+          _buildFeatureShowcaseCard(
+              Icons.shield_outlined,
+              'Secure Document Wallet',
+              'Upload and store your RC, Insurance, and PUC certificates safely.'),
+          const SizedBox(height: 20),
+          _buildFeatureShowcaseCard(
+              Icons.qr_code_scanner,
+              'Instant QR Verification',
+              'Generate a unique QR code for your vehicle for quick verification by officials.'),
+          const SizedBox(height: 20),
+          _buildFeatureShowcaseCard(
+              Icons.notifications_active_outlined,
+              'Expiry Reminders',
+              'Get timely alerts before your important documents expire.'),
+          const SizedBox(height: 20),
+          _buildFeatureShowcaseCard(
+              Icons.miscellaneous_services_outlined,
+              'Service Management',
+              'Book vehicle services and keep a complete history of all maintenance.'),
+        ],
+      ),
+    );
+  }
+  // ***************************** END: UI BUILD METHODS (TOP TO BUTTOM UI COMPONENTS) ****************************
+
+  // ********************************* START: VEHICLE TAB CONTENT (SINGLE VEHICLE) *********************************
+  // --- UI: VEHICLE TAB CONTENT ---
   Widget _buildVehicleTabContent(Map<String, dynamic> vehicle) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 120.0),
@@ -745,9 +639,137 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       ),
     );
   }
-  // --- END: UPDATED VEHICLE TAB CONTENT ---
 
-  // --- START: NEW DYNAMIC SECTIONS ---
+  // --- UI: VEHICLE STATUS WIDGET (Expired, Expiring Soon, Missing) ---
+  Widget _buildVehicleStatusWidget(Map<String, dynamic> vehicle) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('vehicles')
+          .doc(vehicle['id'])
+          .collection('documents')
+          .snapshots(),
+      builder: (context, docSnapshot) {
+        if (docSnapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 10,
+            width: 10,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        }
+
+        final documents = docSnapshot.data?.docs ?? [];
+        MaterialColor statusColor = Colors.grey;
+        String statusText = 'Documents Pending';
+
+        if (documents.isEmpty) {
+          statusText = 'Documents Missing';
+          statusColor = Colors.red;
+        } else {
+          bool allVerified = true;
+          String expiringSoonDoc = '';
+          String expiredDoc = '';
+
+          for (var doc in documents) {
+            final data = doc.data() as Map<String, dynamic>;
+            final Timestamp? expiryTimestamp = data['expiryDate'];
+            if (expiryTimestamp != null) {
+              final expiryDate = expiryTimestamp.toDate();
+              if (expiryDate.isBefore(DateTime.now())) {
+                allVerified = false;
+                expiredDoc = data['documentType'] ?? 'Document';
+                break;
+              }
+              if (expiryDate
+                  .isBefore(DateTime.now().add(const Duration(days: 30)))) {
+                allVerified = false;
+                expiringSoonDoc = data['documentType'] ?? 'Document';
+              }
+            }
+          }
+
+          if (expiredDoc.isNotEmpty) {
+            statusText = '$expiredDoc Expired';
+            statusColor = Colors.red;
+          } else if (expiringSoonDoc.isNotEmpty) {
+            statusText = '$expiringSoonDoc Expiring';
+            statusColor = Colors.orange;
+          } else if (allVerified) {
+            var docTypes =
+            documents.map((d) => (d.data() as Map)['documentType']).toSet();
+            if (docTypes.contains('Insurance Policy') &&
+                docTypes.contains('Pollution Under Control (PUC)')) {
+              statusText = 'All Documents Verified';
+              statusColor = Colors.green;
+            } else {
+              statusText = 'Essential Docs Missing';
+              statusColor = Colors.orange;
+            }
+          } else {
+            statusText = 'Documents Pending';
+            statusColor = Colors.blue;
+          }
+        }
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            statusText,
+            style: TextStyle(
+              color: statusColor.shade800,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        );
+      },
+    );
+  }
+  // ******************************** END: VEHICLE TAB CONTENT (SINGLE VEHICLE) *********************************  
+  
+  // ******************************** START: FEATURES & DYNAMIC SECTION  ********************************
+  // --- UI: FEATURE SHOWCASE CARD (CIRCULAR ICON + TITLE + SUBTITLE) ---
+  Widget _buildFeatureShowcaseCard(
+      IconData icon, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ]),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: AppColors.primaryColorOwner.withOpacity(0.1),
+            child: Icon(icon, color: AppColors.primaryColorOwner, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(color: Colors.grey.shade700)),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+  
+  // --- ALERT SECTIONS (DOCUMENT, WHICH HAVE TO EXPIRE WITHIN 30 DAYS) ---
   Widget _buildUrgentAlertsSection(String vehicleId) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -800,6 +822,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  // --- RECENT SERVICES SECTION (SHOW LAST 5 SERVICES) ---
   Widget _buildRecentServicesSection(String vehicleId) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -834,8 +857,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       },
     );
   }
-  // --- END: NEW DYNAMIC SECTIONS ---
+  // ******************************** END: FEATURES & DYNAMIC SECTION  ********************************
 
+  // ******************************** START: UI HELPER WIDGETS ********************************
+  // --- UI: ACTION CHIP (CIRCULAR ICON + LABEL + ON TAP ACTION) ---
   Widget _buildActionChip(String label, IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -866,6 +891,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  // --- UI: SECTION HEADER (TITLE) ---
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
@@ -873,6 +899,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  // --- UI: ALERT CARD (SHOWS ALERT TYPE, EXPIRY DATE AND LEVEL) ---
   Widget _buildAlertCard(Map<String, String> alert) {
     final bool isExpired = alert['level'] == 'expired';
     return Card(
@@ -895,6 +922,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  // --- UI: SERVICE HISTORY CARD (SHOWS SERVICE NAME AND DATE) ---
   Widget _buildServiceHistoryCard(Map<String, String> service) {
     return Card(
       elevation: 2,
@@ -917,7 +945,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 }
-
+// --- SLIVER TAB BAR DELEGATE ---
 class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   _SliverTabBarDelegate(this._tabBar);
   final TabBar _tabBar;
@@ -939,3 +967,4 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
     return false;
   }
 }
+// ******************************** END: UI HELPER WIDGETS ********************************
