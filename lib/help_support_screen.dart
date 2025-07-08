@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // .env file ke liye import karein
 
 // Data model for a chat message
 class Message {
@@ -20,16 +20,27 @@ class HelpSupportScreen extends StatefulWidget {
 }
 
 class _HelpSupportScreenState extends State<HelpSupportScreen> {
-  // Method to launch the AI Chat Dialog
-  void _showAIChatDialog(BuildContext context) {
-    showDialog(
+  // --- START: MODIFIED to open a Bottom Sheet ---
+  // Method to launch the AI Chat Bottom Sheet
+  void _showAIChatBottomSheet(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      isScrollControlled: true, // Allows the sheet to take up more screen height
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return const AIChatDialog();
+        // We use a DraggableScrollableSheet for a better user experience
+        return DraggableScrollableSheet(
+          initialChildSize: 0.8, // Start at 80% of screen height
+          maxChildSize: 0.9, // Can be dragged up to 90%
+          minChildSize: 0.4, // Can be dragged down to 40%
+          builder: (_, controller) {
+            return AIChatSheet(scrollController: controller);
+          },
+        );
       },
     );
   }
+  // --- END: MODIFICATION ---
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +80,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAIChatDialog(context),
+        onPressed: () => _showAIChatBottomSheet(context),
         icon: const Icon(Icons.smart_toy_outlined),
         label: const Text('AI Assistant'),
         backgroundColor: Theme.of(context).primaryColor,
@@ -129,17 +140,17 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
 }
 
 
-// --- AI CHAT DIALOG WIDGET ---
-class AIChatDialog extends StatefulWidget {
-  const AIChatDialog({super.key});
+// --- AI CHAT WIDGET (for Bottom Sheet) ---
+class AIChatSheet extends StatefulWidget {
+  final ScrollController scrollController;
+  const AIChatSheet({super.key, required this.scrollController});
 
   @override
-  State<AIChatDialog> createState() => _AIChatDialogState();
+  State<AIChatSheet> createState() => _AIChatSheetState();
 }
 
-class _AIChatDialogState extends State<AIChatDialog> {
+class _AIChatSheetState extends State<AIChatSheet> {
   final List<Message> _messages = [];
-  final ScrollController _scrollController = ScrollController();
   final TextEditingController _textController = TextEditingController();
   bool _isBotTyping = false;
 
@@ -185,7 +196,6 @@ class _AIChatDialogState extends State<AIChatDialog> {
   }
 
   Future<String> _getGeminiResponse(String query) async {
-    // --- FIX: API Key ko ab .env file se padha jayega ---
     final apiKey = dotenv.env['GEMINI_API_KEY'];
 
     if (apiKey == null || apiKey.isEmpty) {
@@ -195,12 +205,24 @@ class _AIChatDialogState extends State<AIChatDialog> {
     final apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=$apiKey';
 
     final prompt = '''
-      You are a helpful assistant for a mobile app called "VehicleVerified".
-      Your purpose is to answer user questions about the app.
-      App Context: The app helps users manage vehicle documents, get expiry notifications, and allows police to verify documents via QR code.
-      Developer Info: $_developerInfo
-      
-      Answer the following user question concisely: "$query"
+      You are "VehicleVerified AI Assistant", a friendly and expert guide for the "VehicleVerified" mobile app.
+      Your main goal is to help users understand how to use the app based on the detailed context provided below.
+      Keep your answers concise, helpful, and easy to understand.
+
+      **APP CONTEXT:**
+      - **Primary Goal:** To digitize vehicle document management and verification.
+      - **User Roles:** 1.  **Vehicle Owner:** Can register, add multiple vehicles, upload documents (RC, Insurance, PUC), generate a unique QR code for each vehicle, book services, and view service history.
+        2.  **Traffic Police:** Can log in securely, scan a vehicle's QR code, or manually enter a registration number to instantly verify the status of all documents (Valid, Expired, Missing).
+      - **Key Processes:**
+        - **QR Code Security:** The QR code ONLY contains the vehicle's unique internal ID. It does NOT contain any personal or document data. When a police officer scans the code, the app uses this ID to fetch the LATEST document status directly and securely from the Firebase database in real-time.
+        - **Service Booking:** Owners can book various services. After the scheduled service date passes, the app prompts the owner via a notification to confirm if the service was completed and to rate it ("Good" or "Bad"). This updates the service history.
+        - **Notifications:** The app has a notification system to alert users about upcoming document expiries and to ask for service completion confirmations.
+      - **Developer Information:** The app was developed by Suraj Kumar. His contact details are: $_developerInfo.
+
+      **USER'S QUESTION:**
+      "$query"
+
+      Now, based on all the context above, provide the best possible answer.
     ''';
 
     final response = await http.post(
@@ -222,9 +244,9 @@ class _AIChatDialogState extends State<AIChatDialog> {
 
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+      if (widget.scrollController.hasClients) {
+        widget.scrollController.animateTo(
+          widget.scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -234,36 +256,43 @@ class _AIChatDialogState extends State<AIChatDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('AI Assistant'),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                itemCount: _messages.length + (_isBotTyping ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _messages.length) {
-                    return _buildMessageBubble(Message(text: "Typing...", isUser: false));
-                  }
-                  return _buildMessageBubble(_messages[index]);
-                },
-              ),
-            ),
-            const Divider(height: 1),
-            _buildChatInputField(),
-          ],
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        )
-      ],
+      // --- START: Added Padding to avoid keyboard ---
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      // --- END: Added Padding ---
+      child: Column(
+        children: [
+          // Handle to indicate draggable sheet
+          Container(
+            width: 40,
+            height: 5,
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade400,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: widget.scrollController,
+              padding: const EdgeInsets.all(16.0),
+              itemCount: _messages.length + (_isBotTyping ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _messages.length) {
+                  return _buildMessageBubble(Message(text: "Typing...", isUser: false));
+                }
+                return _buildMessageBubble(_messages[index]);
+              },
+            ),
+          ),
+          const Divider(height: 1),
+          _buildChatInputField(),
+        ],
+      ),
     );
   }
 
@@ -283,8 +312,9 @@ class _AIChatDialogState extends State<AIChatDialog> {
   }
 
   Widget _buildChatInputField() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
         children: [
           Expanded(
