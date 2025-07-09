@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vehicle_verified/themes/color.dart';
 
 class GenerateQrCodeScreen extends StatefulWidget {
-  // Yeh optional vehicle parameter waise hi rahega
   final Map<String, dynamic>? vehicle;
 
   const GenerateQrCodeScreen({super.key, this.vehicle});
@@ -22,21 +21,17 @@ class _GenerateQrCodeScreenState extends State<GenerateQrCodeScreen> {
   @override
   void initState() {
     super.initState();
-    // Agar vehicle pehle se pass kiya gaya hai, to QR generate karein
     if (widget.vehicle != null) {
       _selectedVehicle = widget.vehicle;
       _generateQr();
     } else {
-      // Warna, Firebase se vehicles fetch karein
       _vehiclesFuture = _fetchUserVehicles();
     }
   }
 
-  /// User ke vehicles ko Firestore se fetch karne ka function
   Future<List<Map<String, dynamic>>> _fetchUserVehicles() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Agar user logged in nahi hai, to khaali list return karein
       return [];
     }
     try {
@@ -45,10 +40,9 @@ class _GenerateQrCodeScreenState extends State<GenerateQrCodeScreen> {
           .where('ownerID', isEqualTo: user.uid)
           .get();
 
-      // Documents ko Map ki list mein convert karein
       return snapshot.docs.map((doc) {
         final data = doc.data();
-        data['id'] = doc.id; // Document ID ko bhi save karein
+        data['id'] = doc.id;
         return data;
       }).toList();
     } catch (e) {
@@ -64,7 +58,6 @@ class _GenerateQrCodeScreenState extends State<GenerateQrCodeScreen> {
   void _generateQr() {
     if (_selectedVehicle != null) {
       setState(() {
-        // QR code ke liye vehicle ki document ID ka istemaal karein
         _qrCodeData = _selectedVehicle!['id'];
       });
     }
@@ -82,30 +75,24 @@ class _GenerateQrCodeScreenState extends State<GenerateQrCodeScreen> {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          // Agar QR code generate ho gaya hai, to use dikhayein
           child: _qrCodeData != null
               ? _buildQrCodeDisplay()
-          // Agar vehicle pass nahi kiya gaya, to FutureBuilder se list dikhayein
               : (widget.vehicle == null ? _buildVehicleSelector() : const CircularProgressIndicator()),
         ),
       ),
     );
   }
 
-  /// Vehicle select karne wala UI
   Widget _buildVehicleSelector() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _vehiclesFuture,
       builder: (context, snapshot) {
-        // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        // Error state
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
-        // Data na hone par
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No vehicles found. Please add a vehicle first.'));
         }
@@ -167,7 +154,6 @@ class _GenerateQrCodeScreenState extends State<GenerateQrCodeScreen> {
     );
   }
 
-  /// QR code dikhane wala UI
   Widget _buildQrCodeDisplay() {
     return SingleChildScrollView(
       child: Column(

@@ -5,10 +5,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:vehicle_verified/themes/color.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/view_document_image_screen.dart';
-import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart'; // Import for navigation
+import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart';
 
 class ViewAllDocumentsScreen extends StatefulWidget {
-  // This screen now requires a specific vehicle's data to be passed to it.
   final Map<String, dynamic> vehicle;
 
   const ViewAllDocumentsScreen({super.key, required this.vehicle});
@@ -20,7 +19,6 @@ class ViewAllDocumentsScreen extends StatefulWidget {
 class _ViewAllDocumentsScreenState extends State<ViewAllDocumentsScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Deletes a specific document from Firestore and its corresponding file from Storage.
   Future<void> _deleteDocument(String documentId, String? imageUrl) async {
     final String vehicleId = widget.vehicle['id'];
 
@@ -47,7 +45,6 @@ class _ViewAllDocumentsScreenState extends State<ViewAllDocumentsScreen> {
 
     if (confirmDelete == true && mounted) {
       try {
-        // Delete the document from Firestore
         await _firestore
             .collection('vehicles')
             .doc(vehicleId)
@@ -55,7 +52,6 @@ class _ViewAllDocumentsScreenState extends State<ViewAllDocumentsScreen> {
             .doc(documentId)
             .delete();
 
-        // If an image URL exists, delete the file from Firebase Storage
         if (imageUrl != null && imageUrl.isNotEmpty) {
           await FirebaseStorage.instance.refFromURL(imageUrl).delete();
         }
@@ -89,11 +85,9 @@ class _ViewAllDocumentsScreenState extends State<ViewAllDocumentsScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // Header with vehicle image and details
           SliverToBoxAdapter(
             child: _buildVehicleHeader(vehicleData, vehicleDetails, registrationNumber),
           ),
-          // StreamBuilder for the list of documents
           StreamBuilder<QuerySnapshot>(
             stream: _firestore
                 .collection('vehicles')
@@ -133,7 +127,6 @@ class _ViewAllDocumentsScreenState extends State<ViewAllDocumentsScreen> {
     );
   }
 
-  /// Builds the header section displaying vehicle information.
   Widget _buildVehicleHeader(Map<String, dynamic> vehicleData, String vehicleDetails, String registrationNumber) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -176,7 +169,6 @@ class _ViewAllDocumentsScreenState extends State<ViewAllDocumentsScreen> {
     );
   }
 
-  /// Builds a card for a single document with its details and actions.
   Widget _buildDocumentCard({
     required String docId,
     required Map<String, dynamic> docData,
@@ -254,7 +246,6 @@ class _ViewAllDocumentsScreenState extends State<ViewAllDocumentsScreen> {
     );
   }
 
-  /// Builds the UI shown when no documents are available for the vehicle.
   Widget _buildEmptyState() {
     return Center(
       child: Padding(

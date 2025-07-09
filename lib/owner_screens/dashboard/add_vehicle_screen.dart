@@ -16,7 +16,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   int _currentStep = 0;
   bool _isLoading = false;
 
-  // Controllers for all the text fields
   final _makeController = TextEditingController();
   final _modelController = TextEditingController();
   final _regNumberController = TextEditingController();
@@ -28,7 +27,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _pucProviderController = TextEditingController();
 
   String? _selectedVehicleType;
-  // --- START: UPDATED VEHICLE TYPE LIST ---
   final List<String> _vehicleTypes = [
     'Scooty',
     'Motorcycle',
@@ -43,7 +41,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     'Tractor',
     'E-Rickshaw'
   ];
-  // --- END: UPDATED VEHICLE TYPE LIST ---
 
   DateTime? _registeredDate;
   DateTime? _insuranceExpiryDate;
@@ -51,7 +48,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   @override
   void dispose() {
-    // Dispose all controllers
     _makeController.dispose();
     _modelController.dispose();
     _regNumberController.dispose();
@@ -96,8 +92,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         throw Exception("User not logged in.");
       }
 
-      // --- START: UPDATED IMAGE SELECTION LOGIC ---
-      String imagePath = 'assets/image/car_sedan.png'; // Default image
+      String imagePath = 'assets/image/car_sedan.png';
       switch (_selectedVehicleType) {
         case 'Scooty':
         case 'Motorcycle':
@@ -122,9 +117,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       //   imagePath = 'assets/image/bus.png';
       //   break;
       }
-      // --- END: UPDATED IMAGE SELECTION LOGIC ---
 
-      // Create the main vehicle document
       DocumentReference vehicleRef = await FirebaseFirestore.instance.collection('vehicles').add({
         'ownerID': user.uid,
         'make': _makeController.text.trim(),
@@ -141,7 +134,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         'health': 'Unknown',
       });
 
-      // Add Insurance as a sub-collection document
       if (_policyNumberController.text.isNotEmpty) {
         await vehicleRef.collection('documents').add({
           'documentType': 'Insurance Policy',
@@ -152,7 +144,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         });
       }
 
-      // Add PUC as a sub-collection document
       if (_pucProviderController.text.isNotEmpty) {
         await vehicleRef.collection('documents').add({
           'documentType': 'Pollution Under Control (PUC)',

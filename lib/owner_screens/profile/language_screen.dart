@@ -14,7 +14,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  String _selectedLanguage = 'English'; // Default language
+  String _selectedLanguage = 'English';
   bool _isLoading = true;
 
   final List<String> _languages = ['English', 'हिन्दी (Hindi)', 'मराठी (Marathi)'];
@@ -25,7 +25,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
     _loadLanguagePreference();
   }
 
-  /// Loads the saved language preference from Firestore.
   Future<void> _loadLanguagePreference() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -51,7 +50,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
     }
   }
 
-  /// Saves the selected language preference to Firestore.
   Future<void> _saveLanguagePreference() async {
     final user = _auth.currentUser;
     if (user == null) return;

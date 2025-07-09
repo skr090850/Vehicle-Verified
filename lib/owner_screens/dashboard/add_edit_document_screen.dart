@@ -25,10 +25,9 @@ class AddEditDocumentScreen extends StatefulWidget {
 
 class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
   DateTime? _expiryDate;
-  File? _selectedImageFile; // Select ki gayi file ko store karne ke liye
-  bool _isUploading = false; // Uploading status track karne ke liye
+  File? _selectedImageFile;
+  bool _isUploading = false;
 
-  /// Gallery ya Camera se image select karne ka function
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
@@ -46,7 +45,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
     }
   }
 
-  /// Date select karne ka function
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -60,9 +58,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
       });
     }
   }
-
-  /// File ko upload aur save karne ka function
-  // _uploadAndSaveDocument function ko isse replace karein
 
   Future<void> _uploadAndSaveDocument() async {
     if (_selectedImageFile == null) {
@@ -86,7 +81,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("User not logged in");
 
-      // Step 1: File ko Firebase Storage par upload karein
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       final storagePath = 'documents/${user.uid}/${widget.vehicleId}/$fileName';
       final storageRef = FirebaseStorage.instance.ref().child(storagePath);
@@ -94,7 +88,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
       await storageRef.putFile(_selectedImageFile!);
       final String downloadUrl = await storageRef.getDownloadURL();
 
-      // Step 2: Document ki details ko Firestore mein save/update karein
       final documentData = {
         'documentType': widget.documentType,
         'documentURL': downloadUrl,
@@ -102,9 +95,7 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
         'uploadedAt': Timestamp.now(),
       };
 
-      // YEH NAYI LOGIC HAI
       if (widget.documentId != null) {
-        // Agar documentId hai, to UPDATE karein
         await FirebaseFirestore.instance
             .collection('vehicles')
             .doc(widget.vehicleId)
@@ -112,7 +103,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
             .doc(widget.documentId)
             .update(documentData);
       } else {
-        // Agar documentId nahi hai, to ADD karein
         await FirebaseFirestore.instance
             .collection('vehicles')
             .doc(widget.vehicleId)
@@ -154,7 +144,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Upload Button ya Selected Image
             GestureDetector(
               onTap: () => _showImageSourceDialog(context),
               child: Container(
@@ -182,7 +171,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
             ),
             const SizedBox(height: 30),
 
-            // Expiry Date Picker
             ListTile(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade400)),
               leading: const Icon(Icons.calendar_today),
@@ -197,7 +185,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
             ),
             const Spacer(),
 
-            // Save Button
             _isUploading
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton.icon(
@@ -216,7 +203,6 @@ class _AddEditDocumentScreenState extends State<AddEditDocumentScreen> {
     );
   }
 
-  /// Camera ya Gallery choose karne ke liye dialog
   void _showImageSourceDialog(BuildContext context) {
     showDialog(
       context: context,

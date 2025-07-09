@@ -39,7 +39,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  /// Fetches current user data from Firestore.
   Future<void> _fetchUserData() async {
     final User? user = _auth.currentUser;
     if (user == null) {
@@ -75,7 +74,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  /// Picks an image from the gallery.
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
@@ -87,7 +85,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  /// Saves the updated user data to Firestore.
   Future<void> _updateUserData() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -102,21 +99,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       String? newImageUrl = _profileImageUrl;
-      // If a new image was selected, upload it first.
       if (_selectedImageFile != null) {
-        // --- START: CORRECTED STORAGE PATH ---
-        // Image ko user ke ID ke folder ke andar save karein
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('profile_images')
-            .child(user.uid) // User-specific folder
-            .child('profile.jpg'); // File name
-        // --- END: CORRECTED STORAGE PATH ---
+            .child(user.uid)
+            .child('profile.jpg');
         await storageRef.putFile(_selectedImageFile!);
         newImageUrl = await storageRef.getDownloadURL();
       }
 
-      // Update the user document in Firestore.
       await _firestore.collection('users').doc(user.uid).update({
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),

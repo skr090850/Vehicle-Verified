@@ -26,7 +26,6 @@ class _ChangePasswordScreenAuthedState
     super.dispose();
   }
 
-  /// Handles the password update logic with Firebase.
   Future<void> _updatePassword() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -42,14 +41,12 @@ class _ChangePasswordScreenAuthedState
         throw Exception('No user is currently signed in.');
       }
 
-      // Re-authenticate the user with their current password for security.
       final cred = EmailAuthProvider.credential(
         email: user.email!,
         password: _currentPasswordController.text.trim(),
       );
       await user.reauthenticateWithCredential(cred);
 
-      // If re-authentication is successful, update the password.
       await user.updatePassword(_newPasswordController.text.trim());
 
       if (mounted) {
@@ -64,7 +61,6 @@ class _ChangePasswordScreenAuthedState
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String message = 'An error occurred. Please try again.';
-        // Provide more specific error messages.
         if (e.code == 'wrong-password') {
           message = 'The current password you entered is incorrect.';
         } else if (e.code == 'weak-password') {

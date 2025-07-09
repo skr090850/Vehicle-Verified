@@ -94,7 +94,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             }
           }
         } catch (e) {
-          // Handle potential errors, e.g., permission issues
           print("Error checking notification: $e");
         }
       }
