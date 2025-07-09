@@ -12,7 +12,6 @@ class OwnerServiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Service data with navigation targets
     final List<Map<String, dynamic>> services = [
       {
         "icon": Icons.build_circle,
@@ -63,7 +62,6 @@ class OwnerServiceScreen extends StatelessWidget {
             icon: const Icon(Icons.history, color: Colors.white),
             tooltip: 'Service History',
             onPressed: () {
-              // Navigate to the separate ServiceHistoryScreen
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ServiceHistoryScreen()),

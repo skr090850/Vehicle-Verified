@@ -102,7 +102,7 @@ class _AcCoolingRepairScreenState extends State<AcCoolingRepairScreen> {
         'serviceDate': Timestamp.fromDate(appointmentDateTime),
         'notes': _notesController.text.trim(),
         'status': 'Booked',
-        'cost': 0.0, // Cost will be provided after inspection
+        'cost': 0.0,
         'createdAt': Timestamp.now(),
       });
 

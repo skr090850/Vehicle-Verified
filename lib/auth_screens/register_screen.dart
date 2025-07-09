@@ -31,7 +31,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Step 1: User ko Firebase Auth mein create karein
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -39,7 +38,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       User? user = userCredential.user;
 
       if (user != null) {
-        // Step 2: User ki details ko Firestore mein save karein
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'uid': user.uid,
           'name': _nameController.text.trim(),
@@ -60,10 +58,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
 
-      // Step 3: User ko sign out karein taaki woh manual login kar sake
       await FirebaseAuth.instance.signOut();
 
-      // Step 4: Login screen par navigate karein aur purane sabhi routes hata dein
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => LoginScreen(userRole: widget.userRole),

@@ -13,11 +13,10 @@ class PoliceScannerScreen extends StatefulWidget {
 class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
   final MobileScannerController _scannerController = MobileScannerController();
   bool _isFlashOn = false;
-  bool _isProcessing = false; // To prevent multiple detections
+  bool _isProcessing = false;
 
-  /// Handles the detected barcode, verifies it with Firestore, and navigates.
   Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_isProcessing) return; // If already processing a code, do nothing.
+    if (_isProcessing) return;
 
     setState(() {
       _isProcessing = true;
@@ -27,17 +26,14 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
 
     if (vehicleId != null && vehicleId.isNotEmpty) {
       try {
-        // Stop the camera while we verify the ID
         _scannerController.stop();
 
-        // Check if the vehicle exists in Firestore
         final vehicleDoc = await FirebaseFirestore.instance
             .collection('vehicles')
             .doc(vehicleId)
             .get();
 
         if (vehicleDoc.exists) {
-          // If vehicle exists, navigate to the result screen
           if (mounted) {
             await Navigator.push(
               context,
@@ -47,7 +43,6 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
             );
           }
         } else {
-          // If vehicle does not exist, show an error message
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -64,7 +59,6 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
           );
         }
       } finally {
-        // Restart the camera after a short delay, whether successful or not
         if (mounted) {
           Future.delayed(const Duration(seconds: 1), () {
             if (mounted) {
@@ -77,7 +71,6 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
         }
       }
     } else {
-      // If the QR code is empty, just restart processing
       setState(() {
         _isProcessing = false;
       });
@@ -105,7 +98,6 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
             controller: _scannerController,
             onDetect: _onDetect,
           ),
-          // Scanner Overlay UI
           ColorFiltered(
             colorFilter: ColorFilter.mode(
               Colors.black.withOpacity(0.7),
@@ -132,7 +124,6 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
               ],
             ),
           ),
-          // Flashlight toggle button
           Positioned(
             bottom: 50,
             child: IconButton(
@@ -151,7 +142,6 @@ class _PoliceScannerScreenState extends State<PoliceScannerScreen> {
               ),
             ),
           ),
-          // Show a processing indicator
           if (_isProcessing)
             Container(
               color: Colors.black.withOpacity(0.5),

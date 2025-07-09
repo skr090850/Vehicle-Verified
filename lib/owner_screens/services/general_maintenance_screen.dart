@@ -4,10 +4,9 @@ import 'package:vehicle_verified/themes/color.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Data model for a single service item
 class ServiceItem {
   final String name;
-  final Map<String, double> costs; // Costs for different vehicle categories
+  final Map<String, double> costs;
 
   ServiceItem({required this.name, required this.costs});
 }
@@ -39,7 +38,6 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
     'Chain Lubrication & Adjustment'
   ];
 
-  // --- START: Service List with Individual Costs ---
   final List<ServiceItem> _availableServices = [
     ServiceItem(name: 'Engine Oil Replacement', costs: {'2-Wheeler': 350.00, '4-Wheeler': 800.00}),
     ServiceItem(name: 'Oil Filter Replacement', costs: {'2-Wheeler': 150.00, '4-Wheeler': 450.00}),
@@ -48,11 +46,10 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
     ServiceItem(name: 'Coolant Top-up', costs: {'2-Wheeler': 100.00, '4-Wheeler': 250.00}),
     ServiceItem(name: 'Brake Fluid Check & Top-up', costs: {'2-Wheeler': 80.00, '4-Wheeler': 200.00}),
     ServiceItem(name: 'Battery Checkup', costs: {'2-Wheeler': 100.00, '4-Wheeler': 200.00}),
-    ServiceItem(name: 'Chain Lubrication & Adjustment', costs: {'2-Wheeler': 120.00, '4-Wheeler': 0}), // Not applicable for cars
+    ServiceItem(name: 'Chain Lubrication & Adjustment', costs: {'2-Wheeler': 120.00, '4-Wheeler': 0}),
   ];
 
-  final Set<String> _selectedServices = {}; // To track selected service names
-  // --- END: Service List ---
+  final Set<String> _selectedServices = {};
 
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
@@ -75,7 +72,6 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
         .get();
 
     return snapshot.docs.map((doc) {
-      // --- FIX: Explicitly cast the data to a Map ---
       final data = doc.data() as Map<String, dynamic>;
       final displayString =
           '${data['make'] ?? ''} ${data['model'] ?? ''} - ${data['registrationNumber'] ?? 'N/A'}';
@@ -89,7 +85,7 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
       return {
         'id': doc.id,
         'display': displayString,
-        'category': category, // Simplified category for pricing
+        'category': category,
       };
     }).toList();
   }
@@ -141,7 +137,7 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
           .collection('serviceHistory')
           .add({
         'serviceType': 'Custom Maintenance',
-        'servicesPerformed': _selectedServices.toList(), // Save the list of selected services
+        'servicesPerformed': _selectedServices.toList(),
         'serviceDate': Timestamp.fromDate(appointmentDateTime),
         'notes': _notesController.text.trim(),
         'status': 'Booked',
@@ -172,7 +168,6 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
     }
   }
 
-  // --- START: Robust _pickDate and _pickTime functions ---
   Future<void> _pickDate() async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
@@ -198,7 +193,6 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
       });
     }
   }
-  // --- END: Robust functions ---
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +268,7 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
       child: Column(
         children: _availableServices.map((service) {
           final cost = service.costs[vehicleCategory] ?? 0;
-          if (cost == 0) return const SizedBox.shrink(); // Hide service if not applicable
+          if (cost == 0) return const SizedBox.shrink();
 
           return CheckboxListTile(
             title: Text(service.name),
@@ -422,8 +416,8 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
                 setState(() {
                   _selectedVehicleId = value;
                   _selectedVehicleData = vehicles.firstWhere((v) => v['id'] == value);
-                  _selectedServices.clear(); // Reset selected services
-                  _calculateTotalCost(); // Recalculate cost (will be 0)
+                  _selectedServices.clear();
+                  _calculateTotalCost();
                 });
               },
             ),

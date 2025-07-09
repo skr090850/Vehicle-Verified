@@ -27,7 +27,6 @@ class _NotificationSettingsScreenState
     _loadSettings();
   }
 
-  /// Loads the user's current notification settings from Firestore.
   Future<void> _loadSettings() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -48,7 +47,6 @@ class _NotificationSettingsScreenState
         }
       }
     } catch (e) {
-      // Handle potential errors, e.g., permissions
       print("Error loading settings: $e");
     } finally {
       if (mounted) {
@@ -57,14 +55,11 @@ class _NotificationSettingsScreenState
     }
   }
 
-  /// Updates a specific notification setting in Firestore.
   Future<void> _updateSetting(String key, bool value) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
     try {
-      // Use dot notation to update a field within a map.
-      // This will create the 'notificationPrefs' map if it doesn't exist.
       await _firestore
           .collection('users')
           .doc(user.uid)

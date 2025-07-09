@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:vehicle_verified/themes/color.dart';
 
-// A data model to hold service history information.
 class ServiceHistoryItem {
   final String docId;
   final String vehicleId;

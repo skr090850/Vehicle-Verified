@@ -28,7 +28,6 @@ class _ScannedResultScreenState extends State<ScannedResultScreen> {
     _scannedDataFuture = _fetchVehicleData();
   }
 
-  /// Fetches all vehicle, owner, and document data from Firestore.
   Future<Map<String, dynamic>> _fetchVehicleData() async {
     try {
       // 1. Fetch vehicle data
@@ -42,7 +41,6 @@ class _ScannedResultScreenState extends State<ScannedResultScreen> {
       }
       final vehicleData = vehicleDoc.data() as Map<String, dynamic>;
 
-      // 2. Fetch owner data using ownerID from vehicle data
       final ownerId = vehicleData['ownerID'];
       String ownerName = 'Unknown Owner';
       if (ownerId != null) {
@@ -55,7 +53,6 @@ class _ScannedResultScreenState extends State<ScannedResultScreen> {
         }
       }
 
-      // 3. Fetch documents and determine their status
       final documentsSnapshot = await vehicleDoc.reference.collection('documents').get();
       final List<DocumentStatus> documents = [];
       bool allDocsVerified = documentsSnapshot.docs.isNotEmpty;
@@ -81,7 +78,6 @@ class _ScannedResultScreenState extends State<ScannedResultScreen> {
         ));
       }
 
-      // 4. Combine all data into a single map
       return {
         'ownerName': ownerName,
         'vehicleModel': '${vehicleData['make'] ?? ''} ${vehicleData['model'] ?? ''}',
@@ -90,7 +86,6 @@ class _ScannedResultScreenState extends State<ScannedResultScreen> {
         'isVerified': allDocsVerified,
       };
     } catch (e) {
-      // Propagate error to FutureBuilder
       throw Exception('Failed to load vehicle data: $e');
     }
   }

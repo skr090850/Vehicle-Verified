@@ -26,7 +26,7 @@ class _PoliceBottomNavScreenState extends State<PoliceBottomNavScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true, // Allows the body to go behind the nav bar
+      extendBody: true,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,

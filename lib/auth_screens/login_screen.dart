@@ -22,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isPasswordVisible = false;
 
-  /// --- THE DEFINITIVE FIX WITH ROLE VERIFICATION ---
   Future<void> _performLogin() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -33,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Step 1: User ko authenticate karein
       final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -41,16 +39,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final user = userCredential.user;
       if (user == null) {
-        // Aam taur par yeh case nahi hoga, lekin suraksha ke liye zaroori hai
         throw FirebaseAuthException(code: 'user-not-found');
       }
 
-      // Step 2: Firestore se user ka role fetch karein
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (!doc.exists) {
-        // User Auth mein hai lekin Firestore mein nahi. Yeh ek error hai.
-        await FirebaseAuth.instance.signOut(); // User ko logout karein
+        await FirebaseAuth.instance.signOut();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("User data not found. Please register again."), backgroundColor: Colors.red),
@@ -61,16 +56,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final userRoleFromDB = (doc.data() as Map<String, dynamic>)['role'];
 
-      // Step 3: Role ko compare karein
       if (userRoleFromDB == widget.userRole) {
-        // Role match ho gaya, aage dashboard par redirect karein
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthWrapper()),
               (Route<dynamic> route) => false,
         );
       } else {
-        // Role match nahi hua, error dikhayein aur logout karein
         await FirebaseAuth.instance.signOut();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

@@ -24,7 +24,6 @@ class _ManagePhoneNumberScreenState extends State<ManagePhoneNumberScreen> {
     _fetchUserPhoneNumber();
   }
 
-  /// Fetches the user's phone number from Firestore.
   Future<void> _fetchUserPhoneNumber() async {
     final User? user = _auth.currentUser;
     if (user == null) {
@@ -97,7 +96,6 @@ class _ManagePhoneNumberScreenState extends State<ManagePhoneNumberScreen> {
               icon: const Icon(Icons.change_circle_outlined),
               label: const Text('Change Phone Number'),
               onPressed: () {
-                // TODO: Implement OTP flow to change number
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('This feature is coming soon!')),
                 );

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vehicle_verified/themes/color.dart';
 import 'dart:async';
-import 'package:vehicle_verified/auth_screens/auth_wrapper.dart'; // FIX: AuthWrapper ko import karein
+import 'package:vehicle_verified/auth_screens/auth_wrapper.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

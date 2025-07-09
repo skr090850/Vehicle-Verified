@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 class TermsPrivacyScreen extends StatelessWidget {
   const TermsPrivacyScreen({super.key});
 
-  // --- START: UPDATED CONTENT ---
   final String termsOfService = """
 **Terms of Service for VehicleVerified**
 
@@ -70,7 +69,6 @@ We use administrative, technical, and physical security measures to help protect
 **5. Contact Us**
 If you have questions or comments about this Privacy Policy, please contact us at: skr090850@gmail.com
 """;
-  // --- END: UPDATED CONTENT ---
 
   @override
   Widget build(BuildContext context) {

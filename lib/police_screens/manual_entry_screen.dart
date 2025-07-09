@@ -20,7 +20,6 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     super.dispose();
   }
 
-  /// Searches for a vehicle in Firestore using its registration number.
   Future<void> _searchVehicle() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -33,18 +32,15 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     try {
       final vehicleNumber = _vehicleNumberController.text.trim().toUpperCase();
 
-      // Query Firestore for a vehicle with the matching registration number.
       final querySnapshot = await FirebaseFirestore.instance
           .collection('vehicles')
           .where('registrationNumber', isEqualTo: vehicleNumber)
-          .limit(1) // We only expect one vehicle per registration number.
+          .limit(1)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        // If a vehicle is found, get its document ID.
         final vehicleId = querySnapshot.docs.first.id;
         if (mounted) {
-          // Navigate to the result screen with the real vehicle ID.
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -53,7 +49,6 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           );
         }
       } else {
-        // If no vehicle is found, show a message.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

@@ -26,11 +26,9 @@ class _DentingPaintingScreenState extends State<DentingPaintingScreen> {
   final _notesController = TextEditingController();
   bool _isLoading = false;
 
-  // --- START: File Picker State ---
   File? _pickedFile;
   String? _uploadedFileUrl;
   bool _isUploading = false;
-  // --- END: File Picker State ---
 
   final List<String> _includedServices = [
     'Dent Removal (Up to 3 panels)',
@@ -166,9 +164,9 @@ class _DentingPaintingScreenState extends State<DentingPaintingScreen> {
         'serviceDate': Timestamp.fromDate(appointmentDateTime),
         'notes': _notesController.text.trim(),
         'status': 'Booked',
-        'cost': 0.0, // Cost will be provided after inspection
+        'cost': 0.0,
         'createdAt': Timestamp.now(),
-        'damagePhotoUrl': _uploadedFileUrl, // Save the photo URL
+        'damagePhotoUrl': _uploadedFileUrl,
       });
 
       if (mounted) {
@@ -195,7 +193,6 @@ class _DentingPaintingScreenState extends State<DentingPaintingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // --- CHANGE START: Wrap with Stack for Loading Overlay ---
     return Stack(
       children: [
         Scaffold(
@@ -283,7 +280,6 @@ class _DentingPaintingScreenState extends State<DentingPaintingScreen> {
           ),
       ],
     );
-    // --- CHANGE END ---
   }
 
   Widget _buildSection({required String title, required Widget content}) {
@@ -322,7 +318,6 @@ class _DentingPaintingScreenState extends State<DentingPaintingScreen> {
               onChanged: (value) {
                 setState(() {
                   _selectedVehicleId = value;
-                  // Reset file when vehicle changes
                   _pickedFile = null;
                   _uploadedFileUrl = null;
                   _isUploading = false;

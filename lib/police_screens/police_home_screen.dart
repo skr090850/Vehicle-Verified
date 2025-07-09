@@ -28,7 +28,6 @@ class _PoliceHomeScreenState extends State<PoliceHomeScreen> {
     _fetchOfficerData();
   }
 
-  /// Fetches the logged-in police officer's data from Firestore.
   Future<void> _fetchOfficerData() async {
     final User? user = _auth.currentUser;
     if (user == null) {
@@ -104,7 +103,7 @@ class _PoliceHomeScreenState extends State<PoliceHomeScreen> {
                 );
               },
             ),
-            const SizedBox(height: 80), // To account for the floating nav bar
+            const SizedBox(height: 80),
           ],
         ),
       ),

@@ -32,12 +32,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       setState(() {
         _isLoading = true;
       });
-      // TODO: Implement real Firebase password update logic
       Future.delayed(const Duration(seconds: 2), () {
         setState(() {
           _isLoading = false;
         });
-        // On success, navigate to the login screen
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (context) => LoginScreen(userRole: widget.userRole),
@@ -94,7 +92,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // New Password
           TextFormField(
             controller: _newPasswordController,
             obscureText: _obscureNew,
@@ -115,7 +112,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             },
           ),
           const SizedBox(height: 20),
-          // Confirm Password
           TextFormField(
             controller: _confirmPasswordController,
             obscureText: _obscureConfirm,

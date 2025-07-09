@@ -78,7 +78,6 @@ class _AuthSelectorScreenState extends State<AuthSelectorScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     const Spacer(flex: 2),
-                    // --- START: BRAND NAME ADDED ---
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
@@ -92,7 +91,6 @@ class _AuthSelectorScreenState extends State<AuthSelectorScreen>
                         ),
                       ),
                     ),
-                    // --- END: BRAND NAME ADDED ---
                     const Spacer(flex: 1),
                     FadeTransition(
                       opacity: _fadeAnimation,
@@ -162,7 +160,6 @@ class _AuthSelectorScreenState extends State<AuthSelectorScreen>
     );
   }
 
-  /// Header section jismein saara original content hai
   Widget _buildHeader({
     required double imageSize,
     required double iconSize,
@@ -213,7 +210,6 @@ class _AuthSelectorScreenState extends State<AuthSelectorScreen>
     );
   }
 
-  /// Role selection button banane ke liye helper method
   Widget _buildRoleButton({
     required BuildContext context,
     required IconData icon,

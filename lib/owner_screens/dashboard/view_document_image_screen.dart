@@ -21,7 +21,6 @@ class ViewDocumentImageScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Center(
-        // InteractiveViewer widget image ko zoom in/out karne ki suvidha deta hai
         child: InteractiveViewer(
           panEnabled: true,
           minScale: 0.5,
@@ -29,7 +28,6 @@ class ViewDocumentImageScreen extends StatelessWidget {
           child: Image.network(
             imageUrl,
             fit: BoxFit.contain,
-            // Image load hote samay loading indicator dikhayein
             loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
               if (loadingProgress == null) {
                 return child;
@@ -42,7 +40,6 @@ class ViewDocumentImageScreen extends StatelessWidget {
                 ),
               );
             },
-            // Agar image load hone mein error aaye
             errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
               return const Center(
                 child: Column(

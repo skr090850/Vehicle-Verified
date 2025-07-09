@@ -21,15 +21,13 @@ class OwnerProfileScreen extends StatefulWidget {
 }
 
 class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
-  // --- Firebase Instances ---
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // --- State variables to hold user data ---
   String _userName = "Loading...";
   String _userEmail = "Loading...";
   String _memberSince = "";
-  String? _profileImageUrl; // To hold the image URL
+  String? _profileImageUrl;
   bool _isLoading = true;
 
   @override
@@ -38,7 +36,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
     _fetchUserData();
   }
 
-  /// Fetches user data from Firestore and updates the state.
   Future<void> _fetchUserData() async {
     final User? user = _auth.currentUser;
     if (user == null) {
@@ -63,7 +60,7 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
         setState(() {
           _userName = data['name'] ?? 'No Name';
           _userEmail = data['email'] ?? 'No Email';
-          _profileImageUrl = data['profileImageUrl']; // Fetch the image URL
+          _profileImageUrl = data['profileImageUrl']; 
           if (createdAt != null) {
             _memberSince =
             "Joined ${DateFormat.yMMMM().format(createdAt.toDate())}";
@@ -95,7 +92,7 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-        onRefresh: _fetchUserData, // Allows pull-to-refresh
+        onRefresh: _fetchUserData,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(0, 20.0, 0, 100.0),
           children: [
@@ -109,13 +106,11 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
                   title: 'Edit Profile',
                   subtitle: 'Update your name, email, and photo',
                   onTap: () async {
-                    // Navigate and wait for a potential update
                     await Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (context) =>
                             const EditProfileScreen()));
-                    // Refresh data after returning from edit screen
                     _fetchUserData();
                   },
                 ),
@@ -223,7 +218,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
     );
   }
 
-  /// Builds the top section with the user's avatar and basic info.
   Widget _buildProfileHeader() {
     return Column(
       children: [
@@ -233,7 +227,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
           child: CircleAvatar(
             radius: 52,
             backgroundColor: AppColors.primaryColorOwner.withOpacity(0.1),
-            // --- UPDATED: Dynamic image loading ---
             backgroundImage: _profileImageUrl != null && _profileImageUrl!.isNotEmpty
                 ? NetworkImage(_profileImageUrl!)
                 : null,
@@ -265,7 +258,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
     );
   }
 
-  /// Builds a title for a section of settings.
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -280,7 +272,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
     );
   }
 
-  /// Builds a card to group a list of setting tiles.
   Widget _buildSettingsCard({required List<Widget> children}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -293,7 +284,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
     );
   }
 
-  /// Builds a single row (ListTile) for a setting option.
   Widget _buildSettingsTile({
     required IconData icon,
     required String title,
@@ -312,7 +302,6 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
     );
   }
 
-  /// Builds the logout button at the bottom of the screen.
   Widget _buildLogoutButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),

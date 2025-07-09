@@ -29,12 +29,10 @@ class _ForgotPasswordState extends State<ForgotPassword> {
       });
 
       try {
-        // Step 1: Check if any sign-in methods are associated with the email.
         List<String> signInMethods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(
           _emailController.text.trim(),
         );
 
-        // Step 2: If the list is empty, the email is not registered.
         if (signInMethods.isEmpty) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -45,7 +43,6 @@ class _ForgotPasswordState extends State<ForgotPassword> {
             );
           }
         } else {
-          // Step 3: If the email exists, send the password reset link.
           await FirebaseAuth.instance.sendPasswordResetEmail(
             email: _emailController.text.trim(),
           );
@@ -61,7 +58,6 @@ class _ForgotPasswordState extends State<ForgotPassword> {
           }
         }
       } on FirebaseAuthException catch (e) {
-        // Handle other potential errors, though most are covered by the check above.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -85,8 +81,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
     final isOwner = widget.userRole == 'owner';
     final primaryColor = isOwner ? AppColors.primaryColorOwner : Colors.red.shade700;
     final imageAsset = isOwner
-        ? 'assets/image/owner_forgot_password.png' // Create this asset
-        : 'assets/image/traffic_forgot_password.png'; // Create this asset
+        ? 'assets/image/owner_forgot_password.png'
+        : 'assets/image/traffic_forgot_password.png';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundColorFirst,
@@ -112,7 +108,6 @@ class _ForgotPasswordState extends State<ForgotPassword> {
   Widget _buildHeader(String imageAsset) {
     return Column(
       children: [
-        // Image.asset(imageAsset, height: 200, fit: BoxFit.contain),
         Icon(Icons.lock_reset, size: 80, color: AppColors.primaryColorOwner),
         const SizedBox(height: 24),
         const Text(

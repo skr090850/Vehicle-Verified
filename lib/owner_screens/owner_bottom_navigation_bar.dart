@@ -29,26 +29,21 @@ class _OwnerBottomNavScreenState extends State<OwnerBottomNavScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // extendBody allows the body to go behind the bottom navigation bar.
-      // This is crucial for the overlay effect to work correctly with lists.
       extendBody: true,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      // Use the bottomNavigationBar property for the custom floating bar.
       bottomNavigationBar: _buildOverlayBottomNavBar(),
     );
   }
 
   Widget _buildOverlayBottomNavBar() {
     return Container(
-      // Margin to create the floating effect
       margin: const EdgeInsets.all(20.0),
       height: 70,
       decoration: BoxDecoration(
         color: Colors.white,
-        // Border radius for rounded corners
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(

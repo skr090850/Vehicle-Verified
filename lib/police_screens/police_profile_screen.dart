@@ -28,7 +28,6 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
     _fetchOfficerData();
   }
 
-  /// Fetches the logged-in police officer's data from Firestore.
   Future<void> _fetchOfficerData() async {
     final User? user = _auth.currentUser;
     if (user == null) {
@@ -71,7 +70,7 @@ class _PoliceProfileScreenState extends State<PoliceProfileScreen> {
       appBar: AppBar(
         title: const Text('Official Profile', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.red.shade700,
-        automaticallyImplyLeading: false, // Removes back button
+        automaticallyImplyLeading: false,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

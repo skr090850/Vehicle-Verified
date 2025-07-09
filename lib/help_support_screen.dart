@@ -4,14 +4,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// Data model for a chat message
 class Message {
   final String text;
   final bool isUser;
   Message({required this.text, required this.isUser});
 }
 
-// Main Help & Support Screen
 class HelpSupportScreen extends StatefulWidget {
   const HelpSupportScreen({super.key});
 
@@ -20,20 +18,17 @@ class HelpSupportScreen extends StatefulWidget {
 }
 
 class _HelpSupportScreenState extends State<HelpSupportScreen> {
-  // --- START: MODIFIED to open a Bottom Sheet ---
-  // Method to launch the AI Chat Bottom Sheet
   void _showAIChatBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled:
-          true, // Allows the sheet to take up more screen height
+          true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        // We use a DraggableScrollableSheet for a better user experience
         return DraggableScrollableSheet(
-          initialChildSize: 0.8, // Start at 80% of screen height
-          maxChildSize: 0.9, // Can be dragged up to 90%
-          minChildSize: 0.4, // Can be dragged down to 40%
+          initialChildSize: 0.8, 
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
           builder: (_, controller) {
             return AIChatSheet(scrollController: controller);
           },
@@ -41,7 +36,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
       },
     );
   }
-  // --- END: MODIFICATION ---
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +145,6 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   }
 }
 
-// --- AI CHAT WIDGET (for Bottom Sheet) ---
 class AIChatSheet extends StatefulWidget {
   final ScrollController scrollController;
   const AIChatSheet({super.key, required this.scrollController});
@@ -281,13 +274,10 @@ class _AIChatSheetState extends State<AIChatSheet> {
         color: Colors.grey.shade200,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      // --- START: Added Padding to avoid keyboard ---
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      // --- END: Added Padding ---
       child: Column(
         children: [
-          // Handle to indicate draggable sheet
           Container(
             width: 40,
             height: 5,
