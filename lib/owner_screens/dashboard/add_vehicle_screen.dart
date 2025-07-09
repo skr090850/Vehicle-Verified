@@ -95,27 +95,36 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       String imagePath = 'assets/image/car_sedan.png';
       switch (_selectedVehicleType) {
         case 'Scooty':
-        case 'Motorcycle':
           imagePath = 'assets/image/scooter.png';
           break;
+        case 'Motorcycle':
+          imagePath = 'assets/image/bike.png';
+          break;
         case 'Tempo':
-        case 'Auto-rickshaw':
-        case 'E-Rickshaw':
           imagePath = 'assets/image/tempo.png';
           break;
+        case 'E-Rickshaw':
+          imagePath = 'assets/image/e-Rickshaw.png';
+          break;
         case 'Car (Sedan)':
-        case 'Car (SUV)':
-        case 'Car (Hatchback)':
-        case 'Jeep':
           imagePath = 'assets/image/car_sedan.png';
           break;
+        case 'Car (SUV)':
+          imagePath = 'assets/image/car_suv.png';
+          break;
+        case 'Car (Hatchback)':
+          imagePath = 'assets/image/car_hatchback.png';
+          break;
+        case 'Jeep':
+          imagePath = 'assets/image/car_jeep.png';
+          break;
       // Add more cases for other vehicle types if you have specific images
-      // case 'Truck':
-      //   imagePath = 'assets/image/truck.png';
-      //   break;
-      // case 'Bus':
-      //   imagePath = 'assets/image/bus.png';
-      //   break;
+        case 'Truck':
+          imagePath = 'assets/image/truck.png';
+          break;
+        case 'Bus':
+          imagePath = 'assets/image/bus.png';
+          break;
       }
 
       DocumentReference vehicleRef = await FirebaseFirestore.instance.collection('vehicles').add({
