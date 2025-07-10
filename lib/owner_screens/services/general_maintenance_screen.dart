@@ -401,6 +401,7 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
             DropdownButtonFormField<String>(
               value: _selectedVehicleId,
               hint: const Text('Select your vehicle'),
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Select Vehicle',
                 border: OutlineInputBorder(),
@@ -409,7 +410,8 @@ class _GeneralMaintenanceScreenState extends State<GeneralMaintenanceScreen> {
               items: vehicles
                   .map((vehicle) => DropdownMenuItem(
                 value: vehicle['id'] as String,
-                child: Text(vehicle['display'] as String),
+                child: Text(vehicle['display'] as String,overflow: TextOverflow.ellipsis,),
+                
               ))
                   .toList(),
               onChanged: (value) {

@@ -305,6 +305,7 @@ class _DentingPaintingScreenState extends State<DentingPaintingScreen> {
             DropdownButtonFormField<String>(
               value: _selectedVehicleId,
               hint: const Text('Select your vehicle'),
+              isExpanded: true,
               decoration: const InputDecoration(
                   labelText: 'Select Vehicle',
                   border: OutlineInputBorder(),
@@ -312,7 +313,7 @@ class _DentingPaintingScreenState extends State<DentingPaintingScreen> {
               items: vehicles.map((v) {
                 return DropdownMenuItem<String>(
                   value: v['id'] as String,
-                  child: Text(v['display'] as String),
+                  child: Text(v['display'] as String,overflow: TextOverflow.ellipsis,),
                 );
               }).toList(),
               onChanged: (value) {

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/add_edit_document_screen.dart';
 import 'package:vehicle_verified/themes/color.dart';
 import 'package:vehicle_verified/owner_screens/dashboard/view_document_image_screen.dart';
+import 'package:vehicle_verified/owner_screens/dashboard/add_vehicle_screen.dart'; // Import AddVehicleScreen
 
 class VehicleDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> vehicle;
@@ -197,6 +198,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     );
   }
 
+  // --- START: MODIFIED WIDGET WITH EDIT BUTTON ---
   Widget _buildVehicleInfoCard() {
     return Card(
       elevation: 4,
@@ -206,11 +208,29 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Key Details',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Key Details',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: AppColors.primaryColorOwner),
+                  tooltip: 'Edit Vehicle Details',
+                  onPressed: () {
+                    // Navigate to AddVehicleScreen in "edit mode"
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddVehicleScreen(vehicleToEdit: widget.vehicle),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-            const Divider(height: 24),
+            const Divider(height: 12),
             _buildInfoRow('Registration No.:', widget.vehicle['registrationNumber'] ?? 'N/A'),
             _buildInfoRow('Company Name:', widget.vehicle['make'] ?? 'N/A'),
             _buildInfoRow('Model No.:', widget.vehicle['model'] ?? 'N/A'),
@@ -221,6 +241,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       ),
     );
   }
+  // --- END: MODIFIED WIDGET ---
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(

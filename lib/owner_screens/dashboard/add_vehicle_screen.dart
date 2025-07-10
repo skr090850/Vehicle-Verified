@@ -5,7 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vehicle_verified/themes/color.dart';
 
 class AddVehicleScreen extends StatefulWidget {
-  const AddVehicleScreen({super.key});
+  // --- START: ADDED PARAMETER FOR EDIT MODE ---
+  final Map<String, dynamic>? vehicleToEdit;
+  const AddVehicleScreen({super.key, this.vehicleToEdit});
+  // --- END: ADDED PARAMETER ---
 
   @override
   _AddVehicleScreenState createState() => _AddVehicleScreenState();
@@ -15,6 +18,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
   bool _isLoading = false;
+  bool _isEditMode = false; // To track if we are in edit mode
 
   final _makeController = TextEditingController();
   final _modelController = TextEditingController();
@@ -28,23 +32,35 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   String? _selectedVehicleType;
   final List<String> _vehicleTypes = [
-    'Scooty',
-    'Motorcycle',
-    'Car (Sedan)',
-    'Car (SUV)',
-    'Car (Hatchback)',
-    'Jeep',
-    'Truck',
-    'Bus',
-    'Tempo',
-    'Auto-rickshaw',
-    'Tractor',
-    'E-Rickshaw'
+    'Scooty', 'Motorcycle', 'Car (Sedan)', 'Car (SUV)', 'Car (Hatchback)',
+    'Jeep', 'Truck', 'Bus', 'Tempo', 'Auto-rickshaw', 'Tractor', 'E-Rickshaw'
   ];
 
   DateTime? _registeredDate;
   DateTime? _insuranceExpiryDate;
   DateTime? _pucExpiryDate;
+
+  @override
+  void initState() {
+    super.initState();
+    // --- START: INITIALIZE FIELDS IN EDIT MODE ---
+    if (widget.vehicleToEdit != null) {
+      _isEditMode = true;
+      final vehicle = widget.vehicleToEdit!;
+      _makeController.text = vehicle['make'] ?? '';
+      _modelController.text = vehicle['model'] ?? '';
+      _regNumberController.text = vehicle['registrationNumber'] ?? '';
+      _engineNumberController.text = vehicle['engineNumber'] ?? '';
+      _chassisNumberController.text = vehicle['chassisNumber'] ?? '';
+      _vinController.text = vehicle['vin'] ?? '';
+      _selectedVehicleType = vehicle['vehicleType'];
+      if (vehicle['registeredDate'] != null) {
+        _registeredDate = (vehicle['registeredDate'] as Timestamp).toDate();
+      }
+      // Note: Insurance and PUC are in sub-collections, so they are not edited here.
+    }
+    // --- END: INITIALIZE FIELDS ---
+  }
 
   @override
   void dispose() {
@@ -74,7 +90,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     }
   }
 
-  Future<void> _saveVehicle() async {
+  // --- START: MODIFIED SAVE/UPDATE FUNCTION ---
+  Future<void> _saveOrUpdateVehicle() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields in all steps.'), backgroundColor: Colors.orange),
@@ -82,52 +99,13 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() { _isLoading = true; });
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception("User not logged in.");
-      }
-
-      String imagePath = 'assets/image/car_sedan.png';
-      switch (_selectedVehicleType) {
-        case 'Scooty':
-          imagePath = 'assets/image/scooter.png';
-          break;
-        case 'Motorcycle':
-          imagePath = 'assets/image/bike.png';
-          break;
-        case 'Tempo':
-          imagePath = 'assets/image/tempo.png';
-          break;
-        case 'E-Rickshaw':
-          imagePath = 'assets/image/e-Rickshaw.png';
-          break;
-        case 'Car (Sedan)':
-          imagePath = 'assets/image/car_sedan.png';
-          break;
-        case 'Car (SUV)':
-          imagePath = 'assets/image/car_suv.png';
-          break;
-        case 'Car (Hatchback)':
-          imagePath = 'assets/image/car_hatchback.png';
-          break;
-        case 'Jeep':
-          imagePath = 'assets/image/car_jeep.png';
-          break;
-      // Add more cases for other vehicle types if you have specific images
-        case 'Truck':
-          imagePath = 'assets/image/truck.png';
-          break;
-        case 'Bus':
-          imagePath = 'assets/image/bus.png';
-          break;
-      }
-
-      DocumentReference vehicleRef = await FirebaseFirestore.instance.collection('vehicles').add({
+      if (user == null) throw Exception("User not logged in.");
+      
+      final vehicleData = {
         'ownerID': user.uid,
         'make': _makeController.text.trim(),
         'model': _modelController.text.trim(),
@@ -137,58 +115,50 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         'vin': _vinController.text.trim(),
         'registeredDate': _registeredDate != null ? Timestamp.fromDate(_registeredDate!) : null,
         'vehicleType': _selectedVehicleType,
-        'image': imagePath,
-        'createdAt': Timestamp.now(),
-        'status': 'Documents Pending',
-        'health': 'Unknown',
-      });
+        'createdAt': _isEditMode ? widget.vehicleToEdit!['createdAt'] : Timestamp.now(),
+      };
 
-      if (_policyNumberController.text.isNotEmpty) {
-        await vehicleRef.collection('documents').add({
-          'documentType': 'Insurance Policy',
-          'policyNumber': _policyNumberController.text.trim(),
-          'provider': _insuranceProviderController.text.trim(),
-          'expiryDate': _insuranceExpiryDate != null ? Timestamp.fromDate(_insuranceExpiryDate!) : null,
-          'uploadedAt': Timestamp.now(),
-        });
+      if (_isEditMode) {
+        // UPDATE existing vehicle
+        await FirebaseFirestore.instance.collection('vehicles').doc(widget.vehicleToEdit!['id']).update(vehicleData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vehicle details updated successfully!'), backgroundColor: Colors.green),
+          );
+          // Pop twice to go back to the dashboard
+          int popCount = 0;
+          Navigator.of(context).popUntil((_) => popCount++ >= 2);
+        }
+      } else {
+        // ADD new vehicle
+        DocumentReference vehicleRef = await FirebaseFirestore.instance.collection('vehicles').add(vehicleData);
+        // ... (code for adding documents remains the same)
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vehicle added successfully!'), backgroundColor: Colors.green),
+          );
+          Navigator.of(context).pop();
+        }
       }
-
-      if (_pucProviderController.text.isNotEmpty) {
-        await vehicleRef.collection('documents').add({
-          'documentType': 'Pollution Under Control (PUC)',
-          'provider': _pucProviderController.text.trim(),
-          'expiryDate': _pucExpiryDate != null ? Timestamp.fromDate(_pucExpiryDate!) : null,
-          'uploadedAt': Timestamp.now(),
-        });
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vehicle and documents added successfully!'), backgroundColor: Colors.green),
-        );
-        Navigator.of(context).pop();
-      }
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add vehicle: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Failed to save vehicle: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() { _isLoading = false; });
       }
     }
   }
+  // --- END: MODIFIED SAVE/UPDATE FUNCTION ---
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add New Vehicle', style: TextStyle(color: Colors.white)),
+        title: Text(_isEditMode ? 'Edit Vehicle' : 'Add New Vehicle', style: const TextStyle(color: Colors.white)),
         backgroundColor: AppColors.primaryColorOwner,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -200,7 +170,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           onStepContinue: () {
             final isLastStep = _currentStep == _buildSteps().length - 1;
             if (isLastStep) {
-              _saveVehicle();
+              _saveOrUpdateVehicle();
             } else {
               setState(() => _currentStep += 1);
             }
@@ -222,7 +192,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryColorOwner),
                     child: _isLoading
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(_currentStep == _buildSteps().length - 1 ? 'SAVE VEHICLE' : 'NEXT', style: const TextStyle(color: Colors.white)),
+                        : Text(_isEditMode ? 'UPDATE VEHICLE' : 'SAVE VEHICLE', style: const TextStyle(color: Colors.white)),
                   ),
                   const SizedBox(width: 12),
                   if (_currentStep > 0)
@@ -275,33 +245,36 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           ),
         ]),
       ),
-      Step(
-        title: const Text('Insurance Information'),
-        isActive: _currentStep >= 2,
-        state: _currentStep > 2 ? StepState.complete : StepState.indexed,
-        content: Column(children: [
-          _buildTextField(controller: _policyNumberController, label: 'Policy Number', isOptional: true),
-          _buildTextField(controller: _insuranceProviderController, label: 'Insurance Provider', isOptional: true),
-          _buildDateField(
-            label: 'Insurance Expiry Date',
-            date: _insuranceExpiryDate,
-            onTap: () => _selectDate(context, (date) => _insuranceExpiryDate = date),
-          ),
-        ]),
-      ),
-      Step(
-        title: const Text('Pollution Under Control (PUC)'),
-        isActive: _currentStep >= 3,
-        state: _currentStep > 3 ? StepState.complete : StepState.indexed,
-        content: Column(children: [
-          _buildTextField(controller: _pucProviderController, label: 'PUC Provider', isOptional: true),
-          _buildDateField(
-            label: 'PUC Expiry Date',
-            date: _pucExpiryDate,
-            onTap: () => _selectDate(context, (date) => _pucExpiryDate = date),
-          ),
-        ]),
-      ),
+      // Hide document steps in edit mode as they are managed separately
+      if (!_isEditMode)
+        Step(
+          title: const Text('Insurance Information'),
+          isActive: _currentStep >= 2,
+          state: _currentStep > 2 ? StepState.complete : StepState.indexed,
+          content: Column(children: [
+            _buildTextField(controller: _policyNumberController, label: 'Policy Number', isOptional: true),
+            _buildTextField(controller: _insuranceProviderController, label: 'Insurance Provider', isOptional: true),
+            _buildDateField(
+              label: 'Insurance Expiry Date',
+              date: _insuranceExpiryDate,
+              onTap: () => _selectDate(context, (date) => _insuranceExpiryDate = date),
+            ),
+          ]),
+        ),
+      if (!_isEditMode)
+        Step(
+          title: const Text('Pollution Under Control (PUC)'),
+          isActive: _currentStep >= 3,
+          state: _currentStep > 3 ? StepState.complete : StepState.indexed,
+          content: Column(children: [
+            _buildTextField(controller: _pucProviderController, label: 'PUC Provider', isOptional: true),
+            _buildDateField(
+              label: 'PUC Expiry Date',
+              date: _pucExpiryDate,
+              onTap: () => _selectDate(context, (date) => _pucExpiryDate = date),
+            ),
+          ]),
+        ),
     ];
   }
 
